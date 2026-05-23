@@ -1,0 +1,7 @@
+app:
+  demo:
+    seed:
+      enabled: false
+  book:
+    isbn-external:
+      enabled: false

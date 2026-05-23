@@ -1,0 +1,10 @@
+# Ative com: SPRING_PROFILES_ACTIVE=prod (ou spring.profiles.active=prod)
+#
+# RN0019 — Validação de ISBN externa:
+# - Habilita consulta HTTPS à Open Library (openlibrary.org) em create/update de livro e ao ativar.
+# - Requer conectividade de saída da aplicação para a internet; timeouts em app.book.isbn-external.* (application.yml).
+# - Falhas de rede retornam erro genérico ("Não foi possível validar o ISBN..."); 404 na base = mensagem oficial RN0019.
+app:
+  book:
+    isbn-external:
+      enabled: true

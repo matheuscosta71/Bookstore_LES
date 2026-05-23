@@ -1,0 +1,918 @@
+{
+  "info": {
+    "name": "Matheus GN - Backend",
+    "description": "API REST do e-commerce de livros (Spring Boot).\\n\\n**Variáveis:** `baseUrl` (ex.: http://localhost:8080), `customerId`, `bookId`, `adminKey`, etc.\\n\\n**Admin:** rotas em `/admin`, `/inventory`, `/analytics`, `/audit-logs` e algumas em `/books` exigem o header `X-Admin-Key` (valor em `app.admin.key` no `application.yml`).\\n\\n**Endereços:** `AddressType` aceita apenas `DELIVERY` ou `BILLING`.\\n\\n**RF0025 — Transações:** após `POST .../checkout/finalize`, `GET .../customers/{id}/transactions` lista linhas `PURCHASE` (total do pedido).\\n\\nDocumentação de regras: `README.md` na raiz do `back-end/`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "adminKey", "value": "", "type": "string" },
+    { "key": "customerId", "value": "", "type": "string" },
+    { "key": "addressId", "value": "", "type": "string" },
+    { "key": "cardId", "value": "", "type": "string" },
+    { "key": "bookId", "value": "", "type": "string" },
+    { "key": "itemId", "value": "", "type": "string" },
+    { "key": "orderId", "value": "", "type": "string" },
+    { "key": "orderItemId", "value": "", "type": "string" },
+    { "key": "exchangeRequestId", "value": "", "type": "string" },
+    { "key": "entityName", "value": "Customer", "type": "string" },
+    { "key": "entityId", "value": "", "type": "string" },
+    { "key": "startDate", "value": "2026-01-01", "type": "string" },
+    { "key": "endDate", "value": "2026-01-31", "type": "string" },
+    { "key": "orderStatus", "value": "EM_TROCA", "type": "string" },
+    { "key": "movementType", "value": "ENTRY", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "Recomendações personalizadas",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ai/recommendations/{{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "recommendations", "{{customerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Chat com assistente",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Quais livros de arquitetura você recomenda?\",\n  \"customerId\": \"{{customerId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "chat"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Cadastrar cliente",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Maria Silva\",\n  \"email\": \"maria@example.com\",\n  \"cpf\": \"52998224725\",\n  \"phone\": \"31988887777\",\n  \"birthDate\": \"1992-03-15\",\n  \"password\": \"SenhaForte8!\",\n  \"confirmPassword\": \"SenhaForte8!\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            }
+          }
+        },
+        {
+          "name": "Alterar cliente",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Maria Silva\",\n  \"email\": \"maria@example.com\",\n  \"cpf\": \"52998224725\",\n  \"phone\": \"31988887777\",\n  \"birthDate\": \"1992-03-15\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Inativar cliente",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/inactive",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "inactive"]
+            }
+          }
+        },
+        {
+          "name": "Reativar cliente",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "active"]
+            }
+          }
+        },
+        {
+          "name": "Consultar clientes (filtros/paginação)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers?fullName=&email=&cpf=&phone=&birthDate=&active=&page=0&size=20&sort=id,asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"],
+              "query": [
+                { "key": "fullName", "value": "", "disabled": true },
+                { "key": "email", "value": "", "disabled": true },
+                { "key": "cpf", "value": "", "disabled": true },
+                { "key": "phone", "value": "", "disabled": true },
+                { "key": "birthDate", "value": "", "disabled": true },
+                { "key": "active", "value": "", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "id,asc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar cliente por id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Alterar senha",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"SenhaForte8!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "password"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer addresses",
+      "item": [
+        {
+          "name": "Adicionar endereço",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nickname\": \"Casa\",\n  \"street\": \"Rua A\",\n  \"number\": \"123\",\n  \"complement\": \"Apto 10\",\n  \"neighborhood\": \"Centro\",\n  \"city\": \"Belo Horizonte\",\n  \"state\": \"MG\",\n  \"zipCode\": \"30110-000\",\n  \"type\": \"DELIVERY\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/addresses",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "addresses"]
+            }
+          }
+        },
+        {
+          "name": "Listar endereços ativos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/addresses",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "addresses"]
+            }
+          }
+        },
+        {
+          "name": "Atualizar endereço",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nickname\": \"Casa\",\n  \"street\": \"Rua A\",\n  \"number\": \"123\",\n  \"complement\": \"Apto 10\",\n  \"neighborhood\": \"Centro\",\n  \"city\": \"Belo Horizonte\",\n  \"state\": \"MG\",\n  \"zipCode\": \"30110-000\",\n  \"type\": \"DELIVERY\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/addresses/{{addressId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "addresses", "{{addressId}}"]
+            }
+          }
+        },
+        {
+          "name": "Inativar endereço",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/addresses/{{addressId}}/inactive",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "addresses", "{{addressId}}", "inactive"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer cards",
+      "item": [
+        {
+          "name": "Adicionar cartão",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardholderName\": \"Maria Silva\",\n  \"cardNumber\": \"4111111111111111\",\n  \"brand\": \"VISA\",\n  \"expirationMonth\": 12,\n  \"expirationYear\": 2030,\n  \"preferred\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cards",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cards"]
+            }
+          }
+        },
+        {
+          "name": "Listar cartões ativos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cards",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cards"]
+            }
+          }
+        },
+        {
+          "name": "Atualizar cartão",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardholderName\": \"Maria Silva\",\n  \"cardNumber\": \"4111111111111111\",\n  \"brand\": \"VISA\",\n  \"expirationMonth\": 12,\n  \"expirationYear\": 2030,\n  \"preferred\": true,\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cards/{{cardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cards", "{{cardId}}"]
+            }
+          }
+        },
+        {
+          "name": "Definir cartão como preferencial",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cards/{{cardId}}/preferred",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cards", "{{cardId}}", "preferred"]
+            }
+          }
+        },
+        {
+          "name": "Inativar cartão",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cards/{{cardId}}/inactive",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cards", "{{cardId}}", "inactive"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer transactions",
+      "description": "RF0025 — extrato financeiro do cliente. Após finalizar uma compra (`checkout/finalize`), deve existir ao menos uma linha `PURCHASE` com o total do pedido.",
+      "item": [
+        {
+          "name": "Listar transações do cliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Retorna `id`, `description`, `amount`, `transactionDate`, `type` (ex.: PURCHASE).",
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "transactions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        {
+          "name": "Criar livro",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Clean Code\",\n  \"author\": \"Robert C. Martin\",\n  \"category\": \"Software\",\n  \"price\": 89.90,\n  \"costPrice\": 60.00,\n  \"pricingGroupId\": null,\n  \"isbn\": \"9780132350884\",\n  \"maxSaleValue\": 120.00,\n  \"stockQuantity\": 10,\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["books"]
+            }
+          }
+        },
+        {
+          "name": "Consultar livros (filtros/paginação)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books?title=&author=&category=&isbn=&page=0&size=20&sort=id,asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["books"],
+              "query": [
+                { "key": "title", "value": "", "disabled": true },
+                { "key": "author", "value": "", "disabled": true },
+                { "key": "category", "value": "", "disabled": true },
+                { "key": "isbn", "value": "", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "id,asc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Inativar livros automaticamente",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"minimumSalesValue\": 50.00\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/books/inactivate-automatic",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", "inactivate-automatic"]
+            }
+          }
+        },
+        {
+          "name": "Buscar livro por id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books/{{bookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", "{{bookId}}"]
+            }
+          }
+        },
+        {
+          "name": "Atualizar livro",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Clean Code\",\n  \"author\": \"Robert C. Martin\",\n  \"category\": \"Software\",\n  \"price\": 89.90,\n  \"costPrice\": 60.00,\n  \"pricingGroupId\": null,\n  \"isbn\": \"9780132350884\",\n  \"maxSaleValue\": 120.00,\n  \"stockQuantity\": 10,\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/books/{{bookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", "{{bookId}}"]
+            }
+          }
+        },
+        {
+          "name": "Remover livro",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books/{{bookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", "{{bookId}}"]
+            }
+          }
+        },
+        {
+          "name": "Ativar/Inativar livro",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"active\": true\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/books/{{bookId}}/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", "{{bookId}}", "active"]
+            }
+          }
+        },
+        {
+          "name": "Recalcular preço de venda (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/books/{{bookId}}/recalculate-sale-price",
+              "host": ["{{baseUrl}}"],
+              "path": ["books", "{{bookId}}", "recalculate-sale-price"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory (admin)",
+      "item": [
+        {
+          "name": "Registrar entrada manual de estoque",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Admin-Key", "value": "{{adminKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookId\": \"{{bookId}}\",\n  \"quantity\": 10,\n  \"unitCost\": 25.50,\n  \"reason\": \"PURCHASE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "entries"]
+            }
+          }
+        },
+        {
+          "name": "Consultar saldo de estoque por livro",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/books/{{bookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "books", "{{bookId}}"]
+            }
+          }
+        },
+        {
+          "name": "Listar movimentações de estoque",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/movements?bookId=&movementType=&startDate=&endDate=&page=0&size=20&sort=id,desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "movements"],
+              "query": [
+                { "key": "bookId", "value": "{{bookId}}", "disabled": true },
+                { "key": "movementType", "value": "{{movementType}}", "disabled": true },
+                { "key": "startDate", "value": "{{startDate}}", "disabled": true },
+                { "key": "endDate", "value": "{{endDate}}", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "id,desc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Aplicar baixa de estoque por pedido (idempotente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Admin-Key", "value": "{{adminKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/sales-outbound",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "sales-outbound"]
+            }
+          }
+        },
+        {
+          "name": "Reprocessar reentrada por troca (idempotente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Admin-Key", "value": "{{adminKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"exchangeRequestId\": \"{{exchangeRequestId}}\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/inventory/reentries/exchange",
+              "host": ["{{baseUrl}}"],
+              "path": ["inventory", "reentries", "exchange"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sales - Cart",
+      "item": [
+        {
+          "name": "Adicionar item ao carrinho",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"bookId\": \"{{bookId}}\",\n  \"quantity\": 1\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cart/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cart", "items"]
+            }
+          }
+        },
+        {
+          "name": "Alterar quantidade de um item",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"bookId\": \"{{bookId}}\",\n  \"quantity\": 2\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cart/items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cart", "items", "{{itemId}}"]
+            }
+          }
+        },
+        {
+          "name": "Remover item do carrinho",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cart/items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cart", "items", "{{itemId}}"]
+            }
+          }
+        },
+        {
+          "name": "Visualizar carrinho",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "cart"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sales - Checkout",
+      "item": [
+        {
+          "name": "Calcular frete",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"addressId\": \"{{addressId}}\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/checkout/freight",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "checkout", "freight"]
+            }
+          }
+        },
+        {
+          "name": "Definir endereço de entrega",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": \"{{addressId}}\",\n  \"newAddress\": null,\n  \"saveToProfile\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/checkout/address",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "checkout", "address"]
+            }
+          }
+        },
+        {
+          "name": "Definir formas de pagamento",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"paymentType\": \"CREDIT_CARD\",\n      \"amount\": 100.00,\n      \"creditCardId\": \"{{cardId}}\",\n      \"couponCode\": null\n    }\n  ],\n  \"newCreditCard\": null,\n  \"saveNewCardToProfile\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/checkout/payment",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "checkout", "payment"]
+            }
+          }
+        },
+        {
+          "name": "Finalizar compra",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/checkout/finalize",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "checkout", "finalize"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sales - Customer orders",
+      "item": [
+        {
+          "name": "Listar pedidos do cliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Detalhar pedido",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "orders", "{{orderId}}"]
+            }
+          }
+        },
+        {
+          "name": "Solicitar troca de item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"orderItemId\": \"{{orderItemId}}\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/orders/{{orderId}}/exchange-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "{{customerId}}", "orders", "{{orderId}}", "exchange-requests"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sales - Admin orders",
+      "item": [
+        {
+          "name": "Despachar pedido",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/dispatch",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "orders", "{{orderId}}", "dispatch"]
+            }
+          }
+        },
+        {
+          "name": "Confirmar entrega",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderId}}/deliver",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "orders", "{{orderId}}", "deliver"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sales - Admin exchange",
+      "item": [
+        {
+          "name": "Listar solicitações por status do pedido",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/exchange-requests?status={{orderStatus}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "exchange-requests"],
+              "query": [{ "key": "status", "value": "{{orderStatus}}" }]
+            }
+          }
+        },
+        {
+          "name": "Autorizar troca",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/exchange-requests/{{exchangeRequestId}}/authorize",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "exchange-requests", "{{exchangeRequestId}}", "authorize"]
+            }
+          }
+        },
+        {
+          "name": "Confirmar recebimento (gerar cupom)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Admin-Key", "value": "{{adminKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"returnToStock\": true\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/admin/exchange-requests/{{exchangeRequestId}}/receive",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "exchange-requests", "{{exchangeRequestId}}", "receive"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics (admin)",
+      "item": [
+        {
+          "name": "Resumo de vendas no período",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/sales-history?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "sales-history"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vendas agregadas por livro",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/sales-history/books?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "sales-history", "books"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vendas agregadas por categoria",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/sales-history/categories?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "sales-history", "categories"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dados para gráfico de linhas (receita por dia)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/sales-history/line-chart?startDate={{startDate}}&endDate={{endDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "sales-history", "line-chart"],
+              "query": [
+                { "key": "startDate", "value": "{{startDate}}" },
+                { "key": "endDate", "value": "{{endDate}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit logs (admin)",
+      "item": [
+        {
+          "name": "Listar logs de auditoria (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/audit-logs?page=0&size=20&sort=changedAt,desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["audit-logs"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "changedAt,desc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logs por entidade",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Admin-Key", "value": "{{adminKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/audit-logs/{{entityName}}/{{entityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["audit-logs", "{{entityName}}", "{{entityId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "OpenAPI",
+      "description": "Documentação gerada pelo Springdoc (com a aplicação em execução).",
+      "item": [
+        {
+          "name": "Swagger UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/swagger-ui.html",
+              "host": ["{{baseUrl}}"],
+              "path": ["swagger-ui.html"]
+            }
+          }
+        },
+        {
+          "name": "OpenAPI JSON (v3)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["v3", "api-docs"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

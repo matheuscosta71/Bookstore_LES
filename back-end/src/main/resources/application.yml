@@ -1,0 +1,58 @@
+app:
+  book:
+    sales-manager-key: ${app.admin.key:8a3a0e3c-2b4f-4f8a-8f5c-6e0b8b8c9e12}
+    isbn-external:
+      # RN0019: em desenvolvimento fica desligado (sem dependência de rede). Em produção use o perfil
+      # `prod` — ver application-prod.yml (isbn-external.enabled: true).
+      enabled: false
+      connect-timeout-ms: 5000
+      read-timeout-ms: 8000
+  admin:
+    key: 8a3a0e3c-2b4f-4f8a-8f5c-6e0b8b8c9e12
+    username: admin
+    password: admin
+  demo:
+    seed:
+      enabled: true
+      days-back: 21
+      # Deve coincidir com o 1º livro em DemoDataSeederService (The Great Gatsby — capa na Open Library).
+      marker-isbn: "9780743273565"
+  ai:
+    base-url: https://api.openai.com/v1
+    api-key: ${OPENAI_API_KEY}
+    model: gpt-4o-mini
+    connect-timeout-ms: 5000
+    read-timeout-ms: 60000
+
+cart:
+  item:
+    expiration-minutes: 2
+    # Último minuto do prazo (RNF0045); com prazo total de 2 min, 5 min de aviso não se aplica.
+    warning-before-expiration-minutes: 1
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:booksdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+server:
+  port: 8080
