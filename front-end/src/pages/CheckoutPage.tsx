@@ -54,6 +54,101 @@ function centsToMoney(cents: number): number {
   return Math.round(cents) / 100;
 }
 
+type SelectedCardPayment = {
+  cardId: string;
+  brand: string;
+  cardNumberMasked: string;
+  amount: number;
+};
+
+function initialCardAmounts(totalCents: number, cardCount: number): number[] {
+  if (cardCount <= 0) return [];
+  const result = new Array(cardCount).fill(0);
+  const base = Math.floor(totalCents / cardCount);
+  let extra = totalCents % cardCount;
+  for (let i = 0; i < cardCount; i++) {
+    result[i] = base + (extra > 0 ? 1 : 0);
+    if (extra > 0) extra--;
+  }
+  return result;
+}
+
+function redistributeCardAmounts(
+  totalCents: number,
+  cardCount: number,
+  changedIndex: number,
+  changedValueCents: number
+): number[] {
+  const result = new Array(cardCount).fill(0);
+  const minAllowed = cardCount > 1 ? 1000 : 0;
+  const maxAllowed = totalCents - (cardCount - 1) * minAllowed;
+  const clampedValue = Math.max(minAllowed, Math.min(maxAllowed, changedValueCents));
+  result[changedIndex] = clampedValue;
+  
+  const remainingCents = totalCents - clampedValue;
+  const otherCount = cardCount - 1;
+  
+  if (otherCount > 0) {
+    const base = Math.floor(remainingCents / otherCount);
+    let extra = remainingCents % otherCount;
+    
+    for (let i = 0; i < cardCount; i++) {
+      if (i === changedIndex) continue;
+      result[i] = base + (extra > 0 ? 1 : 0);
+      if (extra > 0) extra--;
+    }
+  }
+  
+  return result;
+}
+
+function adjustCardSelectionsForTotal(
+  total: number,
+  currentSelections: SelectedCardPayment[],
+  availableCards: CreditCard[]
+): SelectedCardPayment[] {
+  if (total <= 0) {
+    return [];
+  }
+
+  // Filter out any selections that are no longer available in availableCards
+  let active = currentSelections.filter((sel) =>
+    availableCards.some((c) => c.id === sel.cardId)
+  );
+
+  // If no cards were previously selected, try to select a default one
+  if (active.length === 0) {
+    const def = availableCards.find((x) => x.preferred) ?? availableCards[0];
+    if (def) {
+      active = [
+        {
+          cardId: def.id,
+          brand: def.brand,
+          cardNumberMasked: def.cardNumberMasked,
+          amount: total,
+        },
+      ];
+    } else {
+      return [];
+    }
+  }
+
+  // Adjust card count to comply with minimum rules:
+  // If count > 1, we must have total >= count * 10
+  // If not, we drop cards from the end until count is 1 (which can be below 10 if there's a coupon)
+  const totalCents = moneyToCents(total);
+  while (active.length > 1 && totalCents < active.length * 1000) {
+    active.pop();
+  }
+
+  // Now distribute totalCents among the active card selections
+  const newAmounts = initialCardAmounts(totalCents, active.length);
+  return active.map((sel, idx) => ({
+    ...sel,
+    amount: centsToMoney(newAmounts[idx]),
+  }));
+}
+
 type AppliedCoupon = {
   code: string;
   paymentType: 'EXCHANGE_COUPON' | 'PROMOTIONAL_COUPON';
@@ -75,9 +170,9 @@ export function CheckoutPage() {
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [saveNewAddress, setSaveNewAddress] = useState(true);
   const [cardMode, setCardMode] = useState<'saved' | 'new'>('saved');
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
+  const [selectedCardPayments, setSelectedCardPayments] = useState<SelectedCardPayment[]>([]);
 
   const [couponPaymentType, setCouponPaymentType] = useState<'EXCHANGE_COUPON' | 'PROMOTIONAL_COUPON'>(
     'EXCHANGE_COUPON',
@@ -131,7 +226,6 @@ export function CheckoutPage() {
       setCards(list);
       const pref = list.find((x) => x.preferred);
       const nextSelectedId = pref?.id ?? list[0]?.id ?? null;
-      setSelectedCardId(nextSelectedId);
       setCardMode(nextSelectedId ? 'saved' : 'new');
     });
   }, [dispatch, customerId, refreshAddresses]);
@@ -182,6 +276,28 @@ export function CheckoutPage() {
       ?.filter((i) => !i.expired)
       .reduce((acc, i) => acc + Number(i.totalPrice), 0) ?? 0;
 
+  const { summaryDiscount, summaryTotal } = useMemo(() => {
+    if (!freight) {
+      return { summaryDiscount: undefined as number | undefined, summaryTotal: itemsSub };
+    }
+    const base = Number(freight.grandTotal);
+    const off = appliedCoupon?.amount ?? 0;
+    return {
+      summaryDiscount: off > 0 ? off : undefined,
+      summaryTotal: Math.max(0, base - off),
+    };
+  }, [freight, appliedCoupon, itemsSub]);
+
+  useEffect(() => {
+    if (cards.length > 0 && summaryTotal > 0) {
+      setSelectedCardPayments((prev) =>
+        adjustCardSelectionsForTotal(summaryTotal, prev, cards)
+      );
+    } else {
+      setSelectedCardPayments([]);
+    }
+  }, [summaryTotal, cards]);
+
   const { canFinalize, finalizeHint } = useMemo(() => {
     if (!freight) {
       return {
@@ -222,10 +338,10 @@ export function CheckoutPage() {
         finalizeHint: `Valor mínimo de R$ ${MIN_CREDIT_CARD_LINE_BRL.toFixed(2).replace('.', ',')} no cartão. Ajuste o carrinho ou o cupom.`,
       };
     }
-    if (needsCard && cardMode === 'saved' && !selectedCardId) {
+    if (needsCard && cardMode === 'saved' && selectedCardPayments.length === 0) {
       return {
         canFinalize: false,
-        finalizeHint: 'Selecione um cartão salvo ou use um novo cartão.',
+        finalizeHint: 'Selecione pelo menos um cartão de pagamento ou use um novo cartão.',
       };
     }
     return { canFinalize: true, finalizeHint: null as string | null };
@@ -234,7 +350,7 @@ export function CheckoutPage() {
     cart?.checkoutAllowed,
     appliedCoupon,
     cardMode,
-    selectedCardId,
+    selectedCardPayments,
     hasBillingAddress,
     hasDeliveryAddress,
   ]);
@@ -344,6 +460,60 @@ export function CheckoutPage() {
     setMsg(null);
   }
 
+  function handleAddCard(card: CreditCard) {
+    const nextCount = selectedCardPayments.length + 1;
+    const totalCents = moneyToCents(summaryTotal);
+    if (nextCount > 1 && totalCents < nextCount * 1000) {
+      setMsg(`Não é possível adicionar outro cartão. O valor total pago nos cartões (${formatBRL(summaryTotal)}) é menor que o mínimo de R$ 10,00 por cartão para ${nextCount} cartões.`);
+      return;
+    }
+    setMsg(null);
+    const newAmounts = initialCardAmounts(totalCents, nextCount);
+    const updated = [
+      ...selectedCardPayments,
+      {
+        cardId: card.id,
+        brand: card.brand,
+        cardNumberMasked: card.cardNumberMasked,
+        amount: 0,
+      }
+    ].map((sel, idx) => ({
+      ...sel,
+      amount: centsToMoney(newAmounts[idx]),
+    }));
+    setSelectedCardPayments(updated);
+  }
+
+  function handleRemoveCard(idx: number) {
+    const updatedList = selectedCardPayments.filter((_, i) => i !== idx);
+    const totalCents = moneyToCents(summaryTotal);
+    const newAmounts = initialCardAmounts(totalCents, updatedList.length);
+    setSelectedCardPayments(updatedList.map((sel, i) => ({
+      ...sel,
+      amount: centsToMoney(newAmounts[i]),
+    })));
+    setMsg(null);
+  }
+
+  function handleCardAmountChange(changedIndex: number, newAmountValue: number) {
+    const totalCents = moneyToCents(summaryTotal);
+    const changedValueCents = moneyToCents(newAmountValue);
+    
+    const newAmounts = redistributeCardAmounts(
+      totalCents,
+      selectedCardPayments.length,
+      changedIndex,
+      changedValueCents
+    );
+    
+    setSelectedCardPayments(
+      selectedCardPayments.map((sel, idx) => ({
+        ...sel,
+        amount: centsToMoney(newAmounts[idx]),
+      }))
+    );
+  }
+
   async function runPay() {
     setMsg(null);
     dispatch(clearCheckoutError());
@@ -369,11 +539,20 @@ export function CheckoutPage() {
     const remainingCents = grandCents - couponCents;
     /* RN0036: valor do cupom pode exceder o total; o back-end emite cupom de troco (sem cartão). */
 
+    let creditCardLineAmounts: number[] = [];
+    if (remainingCents > 0) {
+      if (cardMode === 'saved') {
+        creditCardLineAmounts = selectedCardPayments.map(p => p.amount);
+      } else {
+        creditCardLineAmounts = [centsToMoney(remainingCents)];
+      }
+    }
+
     const payCheck = validateCheckoutPaymentAmounts({
       grandTotal: Number(freight.grandTotal),
       couponAmount: appliedCoupon ? appliedCoupon.amount : 0,
       requiresCreditCard: remainingCents > 0,
-      creditCardLineAmount: remainingCents > 0 ? centsToMoney(remainingCents) : 0,
+      creditCardLineAmounts,
     });
     if (!payCheck.valid) {
       setMsg(payCheck.errors.payment ?? 'Pagamento inválido.');
@@ -390,41 +569,22 @@ export function CheckoutPage() {
         amount: centsToMoney(couponCents),
         couponCode: appliedCoupon.code,
       });
+    }
 
-      if (remainingCents > 0) {
-        if (cardMode === 'saved' && !selectedCardId) {
-          setMsg('Selecione um cartão salvo ou escolha "Novo cartão" para completar o pagamento.');
+    if (remainingCents > 0) {
+      if (cardMode === 'saved') {
+        if (selectedCardPayments.length === 0) {
+          setMsg('Selecione pelo menos um cartão de pagamento.');
           return;
         }
-        if (cardMode === 'new') {
-          const ok = await cardForm.trigger();
-          if (!ok) {
-            setMsg('Confira os dados do cartão nos campos destacados abaixo.');
-            return;
-          }
-          const c = cardForm.getValues();
-          newCard = {
-            cardholderName: c.cardholderName,
-            cardNumber: String(c.cardNumber).replace(/\D/g, ''),
-            brand: c.brand,
-            expirationMonth: Number(c.expirationMonth),
-            expirationYear: Number(c.expirationYear),
-            preferred: c.preferred ?? false,
-          };
-          saveNewCardToProfile = saveNewCard;
-        }
-        lines.push({
-          paymentType: 'CREDIT_CARD',
-          amount: centsToMoney(remainingCents),
-          creditCardId: cardMode === 'saved' ? selectedCardId ?? undefined : undefined,
+        selectedCardPayments.forEach(p => {
+          lines.push({
+            paymentType: 'CREDIT_CARD',
+            amount: p.amount,
+            creditCardId: p.cardId,
+          });
         });
-      }
-    } else {
-      if (cardMode === 'saved' && !selectedCardId) {
-        setMsg('Selecione um cartão salvo ou escolha "Novo cartão" para pagar.');
-        return;
-      }
-      if (cardMode === 'new') {
+      } else {
         const ok = await cardForm.trigger();
         if (!ok) {
           setMsg('Confira os dados do cartão nos campos destacados abaixo.');
@@ -440,12 +600,12 @@ export function CheckoutPage() {
           preferred: c.preferred ?? false,
         };
         saveNewCardToProfile = saveNewCard;
+        
+        lines.push({
+          paymentType: 'CREDIT_CARD',
+          amount: centsToMoney(remainingCents),
+        });
       }
-      lines.push({
-        paymentType: 'CREDIT_CARD',
-        amount: centsToMoney(grandCents),
-        creditCardId: cardMode === 'saved' ? selectedCardId ?? undefined : undefined,
-      });
     }
 
     setCheckoutBusy(true);
@@ -490,27 +650,39 @@ export function CheckoutPage() {
       setCards(active);
       const pref = active.find((x) => x.preferred);
       const nextId = pref?.id ?? created.id ?? active[0]?.id ?? null;
-      setSelectedCardId(nextId);
+      if (nextId) {
+        const addedCard = active.find((x) => x.id === nextId);
+        if (addedCard) {
+          const nextCount = selectedCardPayments.length + 1;
+          const totalCents = moneyToCents(summaryTotal);
+          if (nextCount > 1 && totalCents < nextCount * 1000) {
+            setMsg('Cartão cadastrado no perfil! Não foi possível selecioná-lo automaticamente para esta compra, pois o valor total restante não atende ao mínimo de R$ 10,00 por cartão.');
+          } else {
+            const newAmounts = initialCardAmounts(totalCents, nextCount);
+            const updated = [
+              ...selectedCardPayments,
+              {
+                cardId: addedCard.id,
+                brand: addedCard.brand,
+                cardNumberMasked: addedCard.cardNumberMasked,
+                amount: 0,
+              }
+            ].map((sel, idx) => ({
+              ...sel,
+              amount: centsToMoney(newAmounts[idx]),
+            }));
+            setSelectedCardPayments(updated);
+            setMsg('Cartão cadastrado no perfil e selecionado para esta compra.');
+          }
+        }
+      }
       setCardMode('saved');
       cardForm.reset(EMPTY_CARD_DEFAULTS);
-      setMsg('Cartão adicionado ao perfil. Você pode selecioná-lo em “Cartões salvos”.');
     } catch (e) {
       setMsg(getErrorMessage(e));
     }
   });
 
-  /** Alinhado ao runPay: total = grandTotal − cupom (mínimo 0). O resumo exibe a linha Descontos. */
-  const { summaryDiscount, summaryTotal } = useMemo(() => {
-    if (!freight) {
-      return { summaryDiscount: undefined as number | undefined, summaryTotal: itemsSub };
-    }
-    const base = Number(freight.grandTotal);
-    const off = appliedCoupon?.amount ?? 0;
-    return {
-      summaryDiscount: off > 0 ? off : undefined,
-      summaryTotal: Math.max(0, base - off),
-    };
-  }, [freight, appliedCoupon, itemsSub]);
 
   const checkoutBlocked = cart != null && !cart.checkoutAllowed;
 
@@ -755,28 +927,131 @@ export function CheckoutPage() {
 
             <div className="mt-6 space-y-2">
               <p className="text-sm font-medium text-ink">Cartão de crédito</p>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="radio" checked={cardMode === 'saved'} onChange={() => setCardMode('saved')} />
-                Cartões salvos
-              </label>
-              {cardMode === 'saved' &&
-                cards.map((c) => (
-                  <label key={c.id} className="flex cursor-pointer gap-2 rounded-lg border p-3">
-                    <input
-                      type="radio"
-                      name="card"
-                      checked={selectedCardId === c.id}
-                      onChange={() => setSelectedCardId(c.id)}
-                    />
-                    <span>
-                      {c.brand} {c.cardNumberMasked}
-                    </span>
+              
+              {summaryTotal <= 0 ? (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-950">
+                  O valor do cupom cobre totalmente o pedido. Não é necessário utilizar cartão de crédito.
+                </div>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 text-sm font-semibold">
+                    <input type="radio" checked={cardMode === 'saved'} onChange={() => setCardMode('saved')} />
+                    Cartões de Pagamento
                   </label>
-                ))}
-              <label className="flex items-center gap-2 text-sm">
-                <input type="radio" checked={cardMode === 'new'} onChange={() => setCardMode('new')} />
-                Novo cartão
-              </label>
+                  
+                  {cardMode === 'saved' && (
+                    <div className="space-y-3 rounded-lg border border-stone-200 bg-white p-4">
+                      {selectedCardPayments.length === 0 ? (
+                        <p className="text-sm text-ink-muted">Nenhum cartão selecionado. Cadastre ou selecione um cartão.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Cartões Selecionados para esta Compra</p>
+                          {selectedCardPayments.map((sel, idx) => {
+                            const minVal = selectedCardPayments.length > 1 ? 10 : 0;
+                            const maxVal = summaryTotal - (selectedCardPayments.length - 1) * 10;
+                            return (
+                              <div key={sel.cardId} className="flex flex-col gap-3 rounded-lg border border-stone-100 bg-stone-50/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-block rounded bg-stone-200 px-2 py-0.5 text-xs font-bold text-stone-700 uppercase">{sel.brand}</span>
+                                  <span className="text-sm font-medium text-ink">{sel.cardNumberMasked}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="relative rounded-md shadow-sm">
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                      <span className="text-stone-500 sm:text-sm">R$</span>
+                                    </div>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min={minVal}
+                                      max={maxVal}
+                                      value={sel.amount}
+                                      onChange={(e) => handleCardAmountChange(idx, parseFloat(e.target.value) || 0)}
+                                      className="block w-36 rounded-md border-stone-300 py-1.5 pl-9 pr-3 text-sm text-right focus:border-brand focus:ring-brand"
+                                    />
+                                  </div>
+                                  {selectedCardPayments.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveCard(idx)}
+                                      className="text-xs font-medium text-red-600 hover:text-red-800 hover:underline"
+                                    >
+                                      Remover
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Dropdown de cartões salvos para adicionar */}
+                      {(() => {
+                        const unusedCards = cards.filter(c => !selectedCardPayments.some(sel => sel.cardId === c.id));
+                        const nextCount = selectedCardPayments.length + 1;
+                        const totalCents = moneyToCents(summaryTotal);
+                        const meets10ReaisRuleForNext = nextCount <= 1 || totalCents >= nextCount * 1000;
+
+                        if (unusedCards.length > 0) {
+                          return (
+                            <div className="mt-4 pt-3 border-t border-stone-100">
+                              {meets10ReaisRuleForNext ? (
+                                <div className="flex flex-col gap-1">
+                                  <label htmlFor="add-card-select" className="text-xs font-medium text-ink-muted">Dividir pagamento: Adicionar outro cartão salvo</label>
+                                  <select
+                                    id="add-card-select"
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                      const cardId = e.target.value;
+                                      if (cardId) {
+                                        const card = cards.find(c => c.id === cardId);
+                                        if (card) {
+                                          handleAddCard(card);
+                                          e.target.value = "";
+                                        }
+                                      }
+                                    }}
+                                    className="rounded border-stone-300 px-2 py-1.5 text-sm w-full max-w-xs focus:border-brand focus:ring-brand"
+                                  >
+                                    <option value="" disabled>Selecione um cartão para adicionar...</option>
+                                    {unusedCards.map(c => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.brand} {c.cardNumberMasked}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-amber-700 font-medium">
+                                  Não é possível adicionar outro cartão. O valor restante ({formatBRL(summaryTotal)}) é menor que o mínimo de R$ 10,00 por cartão necessário para {nextCount} cartões.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        } else if (cards.length > 0) {
+                          return (
+                            <p className="mt-4 pt-3 border-t border-stone-100 text-xs text-ink-muted">
+                              Todos os seus cartões salvos já foram adicionados a este pagamento.
+                            </p>
+                          );
+                        } else {
+                          return (
+                            <p className="mt-4 pt-3 border-t border-stone-100 text-xs text-ink-muted">
+                              Nenhum cartão salvo no perfil. Use "Novo cartão" abaixo para cadastrar um cartão.
+                            </p>
+                          );
+                        }
+                      })()}
+                    </div>
+                  )}
+
+                  <label className="flex items-center gap-2 text-sm font-semibold">
+                    <input type="radio" checked={cardMode === 'new'} onChange={() => setCardMode('new')} />
+                    Novo cartão
+                  </label>
+                </>
+              )}
               {cardMode === 'new' && (
                 <div className="grid gap-2 rounded-lg border p-4 sm:grid-cols-2">
                   <p className="sm:col-span-2 text-xs text-ink-muted">
