@@ -17,3 +17,15 @@ export async function createExchangeRequest(
   );
   return data;
 }
+
+export async function createExchangeRequestsBatch(
+  customerId: string,
+  orderId: string,
+  body: { orderItemIds: string[] },
+): Promise<ExchangeRequestResponse[]> {
+  const { data } = await api.post<ExchangeRequestResponse[]>(
+    `/customers/${customerId}/orders/${orderId}/exchange-requests/batch`,
+    body,
+  );
+  return data;
+}

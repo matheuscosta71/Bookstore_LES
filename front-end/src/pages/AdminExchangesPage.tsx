@@ -135,7 +135,7 @@ export function AdminExchangesPage() {
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {status === 'EM_TROCA' && r.exchangeStatus === 'REQUESTED' && (
+                {r.exchangeStatus === 'REQUESTED' && (
                   <button
                     type="button"
                     disabled={busyId === r.id}
@@ -145,7 +145,7 @@ export function AdminExchangesPage() {
                     Autorizar
                   </button>
                 )}
-                {status === 'TROCA_AUTORIZADA' && r.exchangeStatus === 'AUTHORIZED' && (
+                {r.exchangeStatus === 'AUTHORIZED' && (
                   <>
                     <button
                       type="button"

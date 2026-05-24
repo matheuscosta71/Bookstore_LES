@@ -1,5 +1,6 @@
 package com.matheusgn.ecommerce.sales.controller;
 
+import com.matheusgn.ecommerce.sales.dto.CreateExchangeBatchRequest;
 import com.matheusgn.ecommerce.sales.dto.CreateExchangeRequest;
 import com.matheusgn.ecommerce.sales.dto.ExchangeRequestResponse;
 import com.matheusgn.ecommerce.sales.dto.OrderResponse;
@@ -52,5 +53,15 @@ public class CustomerOrderController {
             @PathVariable UUID orderId,
             @Valid @RequestBody CreateExchangeRequest request) {
         return exchangeService.requestExchange(customerId, orderId, request);
+    }
+
+    @PostMapping("/{orderId}/exchange-requests/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Solicitar troca de múltiplos itens em lote")
+    public List<ExchangeRequestResponse> requestExchangeBatch(
+            @PathVariable UUID customerId,
+            @PathVariable UUID orderId,
+            @Valid @RequestBody CreateExchangeBatchRequest request) {
+        return exchangeService.requestExchangeBatch(customerId, orderId, request.getOrderItemIds());
     }
 }

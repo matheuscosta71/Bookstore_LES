@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,12 +45,10 @@ public class ExchangeService {
     public ExchangeRequestResponse requestExchange(UUID customerId, UUID orderId, CreateExchangeRequest request) {
         SalesOrder order = salesOrderRepository.findByIdAndCustomer_Id(orderId, customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado"));
-        if (order.getStatus() != OrderStatus.ENTREGUE) {
+        if (order.getStatus() != OrderStatus.ENTREGUE &&
+            order.getStatus() != OrderStatus.EM_TROCA &&
+            order.getStatus() != OrderStatus.TROCA_AUTORIZADA) {
             throw new IllegalArgumentException("Troca só permitida para pedido entregue");
-        }
-        if (exchangeRequestRepository.existsByOrder_IdAndStatusIn(order.getId(),
-                EnumSet.of(ExchangeStatus.REQUESTED, ExchangeStatus.AUTHORIZED))) {
-            throw new IllegalArgumentException("Já existe troca em andamento para este pedido");
         }
         OrderItem item = orderItemRepository.findByIdAndOrder_Id(request.getOrderItemId(), orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Item não pertence ao pedido"));
@@ -69,12 +68,52 @@ public class ExchangeService {
                 .status(ExchangeStatus.REQUESTED)
                 .build();
 
-        order.setStatus(OrderStatus.EM_TROCA);
         exchangeRequestRepository.save(er);
         orderItemRepository.save(item);
-        salesOrderRepository.save(order);
+        
+        updateOrderStatusAfterExchangeChange(order);
 
         return toResponse(er);
+    }
+
+    @Transactional
+    public List<ExchangeRequestResponse> requestExchangeBatch(UUID customerId, UUID orderId, List<UUID> orderItemIds) {
+        SalesOrder order = salesOrderRepository.findByIdAndCustomer_Id(orderId, customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado"));
+        if (order.getStatus() != OrderStatus.ENTREGUE &&
+            order.getStatus() != OrderStatus.EM_TROCA &&
+            order.getStatus() != OrderStatus.TROCA_AUTORIZADA) {
+            throw new IllegalArgumentException("Troca só permitida para pedido entregue");
+        }
+
+        List<ExchangeRequest> createdRequests = new ArrayList<>();
+        for (UUID itemId : orderItemIds) {
+            OrderItem item = orderItemRepository.findByIdAndOrder_Id(itemId, orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Item não pertence ao pedido"));
+            if (item.isExchangeRequested()) {
+                throw new IllegalArgumentException("Item já possui solicitação de troca");
+            }
+            if (exchangeRequestRepository.existsByOrderItem_Id(item.getId())) {
+                throw new IllegalArgumentException("Item já possui solicitação de troca");
+            }
+
+            item.setExchangeRequested(true);
+
+            ExchangeRequest er = ExchangeRequest.builder()
+                    .order(order)
+                    .orderItem(item)
+                    .customer(order.getCustomer())
+                    .status(ExchangeStatus.REQUESTED)
+                    .build();
+
+            exchangeRequestRepository.save(er);
+            orderItemRepository.save(item);
+            createdRequests.add(er);
+        }
+
+        updateOrderStatusAfterExchangeChange(order);
+
+        return createdRequests.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -93,12 +132,14 @@ public class ExchangeService {
         if (er.getStatus() != ExchangeStatus.REQUESTED) {
             throw new IllegalArgumentException("Somente solicitações pendentes podem ser autorizadas");
         }
-        if (er.getOrder().getStatus() != OrderStatus.EM_TROCA) {
-            throw new IllegalArgumentException("Pedido não está com status EM_TROCA");
+        if (er.getOrder().getStatus() != OrderStatus.EM_TROCA && er.getOrder().getStatus() != OrderStatus.TROCA_AUTORIZADA) {
+            throw new IllegalArgumentException("Pedido não está em processo de troca");
         }
         er.setStatus(ExchangeStatus.AUTHORIZED);
-        er.getOrder().setStatus(OrderStatus.TROCA_AUTORIZADA);
         exchangeRequestRepository.save(er);
+        
+        updateOrderStatusAfterExchangeChange(er.getOrder());
+        
         customerNotificationService.notifyExchangeAuthorized(
                 er.getCustomer().getId(), er.getOrder().getId(), er.getId());
         return toResponse(er);
@@ -112,8 +153,8 @@ public class ExchangeService {
         if (er.getStatus() != ExchangeStatus.AUTHORIZED) {
             throw new IllegalArgumentException("Somente solicitações autorizadas podem ser recebidas");
         }
-        if (er.getOrder().getStatus() != OrderStatus.TROCA_AUTORIZADA) {
-            throw new IllegalArgumentException("Pedido não está com status TROCA_AUTORIZADA");
+        if (er.getOrder().getStatus() != OrderStatus.EM_TROCA && er.getOrder().getStatus() != OrderStatus.TROCA_AUTORIZADA) {
+            throw new IllegalArgumentException("Pedido não está em processo de troca");
         }
 
         er.setReturnToStock(request.getReturnToStock());
@@ -128,8 +169,10 @@ public class ExchangeService {
             exchangeInventoryService.applyExchangeReturnToStock(er.getId());
         }
 
-        er.getOrder().setStatus(OrderStatus.ENTREGUE);
         exchangeRequestRepository.save(er);
+        
+        updateOrderStatusAfterExchangeChange(er.getOrder());
+        
         customerNotificationService.notifyExchangeReceived(er.getCustomer().getId(), er.getOrder().getId(), code);
         Map<String, Object> audit = new LinkedHashMap<>();
         audit.put("status", ExchangeStatus.RECEIVED.name());
@@ -137,6 +180,20 @@ public class ExchangeService {
         audit.put("orderId", er.getOrder().getId());
         auditLogService.logUpdate("ExchangeRequest", er.getId(), audit);
         return toResponse(er);
+    }
+
+    private void updateOrderStatusAfterExchangeChange(SalesOrder order) {
+        List<ExchangeRequest> requests = exchangeRequestRepository.findByOrder_Id(order.getId());
+        boolean hasRequested = requests.stream().anyMatch(r -> r.getStatus() == ExchangeStatus.REQUESTED);
+        boolean hasAuthorized = requests.stream().anyMatch(r -> r.getStatus() == ExchangeStatus.AUTHORIZED);
+        if (hasRequested) {
+            order.setStatus(OrderStatus.EM_TROCA);
+        } else if (hasAuthorized) {
+            order.setStatus(OrderStatus.TROCA_AUTORIZADA);
+        } else {
+            order.setStatus(OrderStatus.ENTREGUE);
+        }
+        salesOrderRepository.save(order);
     }
 
     private String newUniqueCouponCode() {

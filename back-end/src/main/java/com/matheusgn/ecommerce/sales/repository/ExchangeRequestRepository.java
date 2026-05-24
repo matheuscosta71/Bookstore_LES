@@ -25,5 +25,7 @@ public interface ExchangeRequestRepository extends JpaRepository<ExchangeRequest
 
     boolean existsByOrder_IdAndStatusIn(UUID orderId, Collection<ExchangeStatus> statuses);
 
+    List<ExchangeRequest> findByOrder_Id(UUID orderId);
+
     boolean existsByOrderItem_Id(UUID orderItemId);
 }

@@ -120,11 +120,13 @@ class ExchangeServiceTest {
         @DisplayName("givenEntregueOrder_whenRequest_thenCreatesExchange")
         void givenEntregueOrder_whenRequest_thenCreatesExchange() {
             when(salesOrderRepository.findByIdAndCustomer_Id(orderId, customerId)).thenReturn(Optional.of(order));
-            when(exchangeRequestRepository.existsByOrder_IdAndStatusIn(any(), any())).thenReturn(false);
             when(orderItemRepository.findByIdAndOrder_Id(itemId, orderId)).thenReturn(Optional.of(orderItem));
             when(exchangeRequestRepository.existsByOrderItem_Id(itemId)).thenReturn(false);
             when(exchangeRequestRepository.save(any(ExchangeRequest.class))).thenAnswer(inv -> inv.getArgument(0));
             when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(exchangeRequestRepository.findByOrder_Id(orderId)).thenReturn(List.of(
+                    ExchangeRequest.builder().status(ExchangeStatus.REQUESTED).build()
+            ));
             when(salesOrderRepository.save(any(SalesOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
             var res = exchangeService.requestExchange(customerId, orderId,
@@ -160,12 +162,47 @@ class ExchangeServiceTest {
         @DisplayName("givenWrongOrderItem_whenRequest_thenNotFound")
         void givenWrongOrderItem_whenRequest_thenNotFound() {
             when(salesOrderRepository.findByIdAndCustomer_Id(orderId, customerId)).thenReturn(Optional.of(order));
-            when(exchangeRequestRepository.existsByOrder_IdAndStatusIn(any(), any())).thenReturn(false);
             when(orderItemRepository.findByIdAndOrder_Id(itemId, orderId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> exchangeService.requestExchange(customerId, orderId,
                     CreateExchangeRequest.builder().orderItemId(itemId).build()))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("RFBatch — Solicitar troca em lote")
+    class RfBatch {
+
+        @Test
+        @DisplayName("givenEntregueOrder_whenRequestBatch_thenCreatesExchanges")
+        void givenEntregueOrder_whenRequestBatch_thenCreatesExchanges() {
+            when(salesOrderRepository.findByIdAndCustomer_Id(orderId, customerId)).thenReturn(Optional.of(order));
+            when(orderItemRepository.findByIdAndOrder_Id(itemId, orderId)).thenReturn(Optional.of(orderItem));
+            when(exchangeRequestRepository.existsByOrderItem_Id(itemId)).thenReturn(false);
+            when(exchangeRequestRepository.save(any(ExchangeRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(exchangeRequestRepository.findByOrder_Id(orderId)).thenReturn(List.of(
+                    ExchangeRequest.builder().status(ExchangeStatus.REQUESTED).build()
+            ));
+            when(salesOrderRepository.save(any(SalesOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            var res = exchangeService.requestExchangeBatch(customerId, orderId, List.of(itemId));
+
+            assertThat(res).hasSize(1);
+            assertThat(res.get(0).getExchangeStatus()).isEqualTo(ExchangeStatus.REQUESTED);
+            assertThat(res.get(0).getOrderStatus()).isEqualTo(OrderStatus.EM_TROCA);
+        }
+
+        @Test
+        @DisplayName("givenOrderNotEntregue_whenRequestBatch_thenThrows")
+        void givenOrderNotEntregue_whenRequestBatch_thenThrows() {
+            order.setStatus(OrderStatus.EM_PROCESSAMENTO);
+            when(salesOrderRepository.findByIdAndCustomer_Id(orderId, customerId)).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> exchangeService.requestExchangeBatch(customerId, orderId, List.of(itemId)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("entregue");
         }
     }
 
@@ -203,6 +240,8 @@ class ExchangeServiceTest {
             order.setStatus(OrderStatus.EM_TROCA);
             when(exchangeRequestRepository.findById(eq(er.getId()))).thenReturn(Optional.of(er));
             when(exchangeRequestRepository.save(any(ExchangeRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(exchangeRequestRepository.findByOrder_Id(orderId)).thenReturn(List.of(er));
+            when(salesOrderRepository.save(any(SalesOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
             var res = exchangeService.authorize(er.getId(), adminKey);
 
@@ -242,6 +281,8 @@ class ExchangeServiceTest {
             when(exchangeRequestRepository.findById(eq(er.getId()))).thenReturn(Optional.of(er));
             when(couponRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
             when(exchangeRequestRepository.save(any(ExchangeRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(exchangeRequestRepository.findByOrder_Id(orderId)).thenReturn(List.of(er));
+            when(salesOrderRepository.save(any(SalesOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
             var res = exchangeService.receive(er.getId(),
                     ExchangeReceiveRequest.builder().returnToStock(true).build(), adminKey);
@@ -272,6 +313,8 @@ class ExchangeServiceTest {
             when(exchangeRequestRepository.findById(eq(er.getId()))).thenReturn(Optional.of(er));
             when(couponRepository.existsByCodeIgnoreCase(any())).thenReturn(false);
             when(exchangeRequestRepository.save(any(ExchangeRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(exchangeRequestRepository.findByOrder_Id(orderId)).thenReturn(List.of(er));
+            when(salesOrderRepository.save(any(SalesOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
             exchangeService.receive(er.getId(),
                     ExchangeReceiveRequest.builder().returnToStock(false).build(), adminKey);
