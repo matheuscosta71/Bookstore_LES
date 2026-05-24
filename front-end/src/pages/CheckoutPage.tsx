@@ -457,11 +457,6 @@ export function CheckoutPage() {
       return;
     }
 
-    if (couponPaymentType === 'PROMOTIONAL_COUPON' && appliedCoupons.some((c) => c.paymentType === 'PROMOTIONAL_COUPON')) {
-      setCouponFieldError('É permitido no máximo um cupom promocional por compra (RN0033).');
-      return;
-    }
-
     try {
       const { amount } = await checkoutService.validateCheckoutCoupon(customerId, {
         code,

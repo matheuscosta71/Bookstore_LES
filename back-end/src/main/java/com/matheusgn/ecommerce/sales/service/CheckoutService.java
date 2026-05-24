@@ -203,12 +203,6 @@ public class CheckoutService {
     /** RN0033–RN0035: no máximo um cupom promocional; mínimo R$ 10 por linha de cartão (com exceções). */
     private void validateCardAndPromoRulesFromPaymentRequest(CheckoutPaymentRequest request, BigDecimal grandTotal) {
         List<PaymentLineRequest> lines = request.getLines();
-        long promoCount = lines.stream()
-                .filter(l -> l.getPaymentType() == PaymentType.PROMOTIONAL_COUPON)
-                .count();
-        if (promoCount > 1) {
-            throw new IllegalArgumentException("É permitido no máximo um cupom promocional por compra.");
-        }
 
         // RN0036: Validação de cupons desnecessários
         List<PaymentLineRequest> couponLines = lines.stream()
@@ -249,12 +243,6 @@ public class CheckoutService {
 
     private void validateCardAndPromoRulesFromCart(Cart cart, BigDecimal grandTotal) {
         List<CartPaymentLine> lines = cart.getPaymentLines();
-        long promoCount = lines.stream()
-                .filter(l -> l.getPaymentType() == PaymentType.PROMOTIONAL_COUPON)
-                .count();
-        if (promoCount > 1) {
-            throw new IllegalArgumentException("É permitido no máximo um cupom promocional por compra.");
-        }
 
         // RN0036: Validação de cupons desnecessários
         List<CartPaymentLine> couponLines = lines.stream()
