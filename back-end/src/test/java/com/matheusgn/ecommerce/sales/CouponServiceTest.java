@@ -191,6 +191,67 @@ class CouponServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("admin coupon operations")
+    class AdminCoupons {
+
+        @Test
+        @DisplayName("givenCreateCouponRequest_whenCreateCoupon_thenSavesCoupon")
+        void adminCreatesCouponSuccessfully() {
+            com.matheusgn.ecommerce.sales.dto.CreateCouponRequest req = com.matheusgn.ecommerce.sales.dto.CreateCouponRequest.builder()
+                    .code("SAVE30")
+                    .type(CouponType.PROMOTIONAL)
+                    .amount(new BigDecimal("30.00"))
+                    .expirationDate(LocalDate.now().plusMonths(3))
+                    .build();
+
+            when(couponRepository.existsByCodeIgnoreCase("SAVE30")).thenReturn(false);
+            when(couponRepository.save(any(Coupon.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            com.matheusgn.ecommerce.sales.dto.CouponResponse resp = couponService.createCoupon(req);
+
+            assertThat(resp.getCode()).isEqualTo("SAVE30");
+            assertThat(resp.getAmount()).isEqualByComparingTo("30.00");
+            assertThat(resp.getType()).isEqualTo(CouponType.PROMOTIONAL);
+            assertThat(resp.isActive()).isTrue();
+            assertThat(resp.isRedeemed()).isFalse();
+            verify(couponRepository).save(any(Coupon.class));
+        }
+
+        @Test
+        @DisplayName("givenDuplicateCode_whenCreateCoupon_thenThrowsException")
+        void adminDuplicateCodeThrows() {
+            com.matheusgn.ecommerce.sales.dto.CreateCouponRequest req = com.matheusgn.ecommerce.sales.dto.CreateCouponRequest.builder()
+                    .code("DUPLICATE")
+                    .type(CouponType.PROMOTIONAL)
+                    .amount(new BigDecimal("10.00"))
+                    .build();
+
+            when(couponRepository.existsByCodeIgnoreCase("DUPLICATE")).thenReturn(true);
+
+            assertThatThrownBy(() -> couponService.createCoupon(req))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Já existe");
+        }
+
+        @Test
+        @DisplayName("givenCouponId_whenToggleActive_thenInvertsStatus")
+        void adminTogglesActiveStatus() {
+            UUID couponId = UUID.randomUUID();
+            Coupon coupon = baseCoupon("ACTIVE_TEST", CouponType.PROMOTIONAL).active(true).build();
+            when(couponRepository.findById(couponId)).thenReturn(Optional.of(coupon));
+            when(couponRepository.save(coupon)).thenReturn(coupon);
+
+            com.matheusgn.ecommerce.sales.dto.CouponResponse resp = couponService.toggleActive(couponId);
+            assertThat(resp.isActive()).isFalse();
+
+            coupon.setActive(false);
+            when(couponRepository.findById(couponId)).thenReturn(Optional.of(coupon));
+            resp = couponService.toggleActive(couponId);
+            assertThat(resp.isActive()).isTrue();
+        }
+    }
+
     private static Coupon.CouponBuilder baseCoupon(String code, CouponType type) {
         return Coupon.builder()
                 .code(code)

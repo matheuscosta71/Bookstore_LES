@@ -178,7 +178,7 @@ export function CheckoutPage() {
     'EXCHANGE_COUPON',
   );
   const [couponCodeDraft, setCouponCodeDraft] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [appliedCoupons, setAppliedCoupons] = useState<AppliedCoupon[]>([]);
   const [couponFieldError, setCouponFieldError] = useState<string | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   /** Novo endereço no checkout: entrega + cobrança com um preenchimento (dois registros no perfil). */
@@ -231,7 +231,6 @@ export function CheckoutPage() {
   }, [dispatch, customerId, refreshAddresses]);
 
   useEffect(() => {
-    setAppliedCoupon(null);
     setCouponFieldError(null);
   }, [couponPaymentType]);
 
@@ -281,12 +280,12 @@ export function CheckoutPage() {
       return { summaryDiscount: undefined as number | undefined, summaryTotal: itemsSub };
     }
     const base = Number(freight.grandTotal);
-    const off = appliedCoupon?.amount ?? 0;
+    const off = appliedCoupons.reduce((acc, c) => acc + c.amount, 0);
     return {
       summaryDiscount: off > 0 ? off : undefined,
       summaryTotal: Math.max(0, base - off),
     };
-  }, [freight, appliedCoupon, itemsSub]);
+  }, [freight, appliedCoupons, itemsSub]);
 
   useEffect(() => {
     if (cards.length > 0 && summaryTotal > 0) {
@@ -323,14 +322,24 @@ export function CheckoutPage() {
       };
     }
     const grandCents = moneyToCents(Number(freight.grandTotal));
-    const couponCents = appliedCoupon ? moneyToCents(appliedCoupon.amount) : 0;
+    const couponCents = appliedCoupons.reduce((acc, c) => acc + moneyToCents(c.amount), 0);
     const remainingCents = grandCents - couponCents;
-    if (remainingCents < 0) {
+
+    // Check for unnecessary coupons (RN0036)
+    const hasUnnecessaryCoupon = appliedCoupons.some((c) => {
+      const otherCouponsCents = appliedCoupons
+        .filter((x) => x.code !== c.code)
+        .reduce((acc, x) => acc + moneyToCents(x.amount), 0);
+      return otherCouponsCents >= grandCents;
+    });
+
+    if (hasUnnecessaryCoupon) {
       return {
         canFinalize: false,
-        finalizeHint: 'O valor do cupom é maior que o total do pedido.',
+        finalizeHint: 'Existem cupons desnecessários aplicados. Remova os cupons extras que superam o total da compra (RN0036).',
       };
     }
+
     const needsCard = remainingCents > 0;
     if (needsCard && remainingCents < moneyToCents(MIN_CREDIT_CARD_LINE_BRL)) {
       return {
@@ -348,7 +357,7 @@ export function CheckoutPage() {
   }, [
     freight,
     cart?.checkoutAllowed,
-    appliedCoupon,
+    appliedCoupons,
     cardMode,
     selectedCardPayments,
     hasBillingAddress,
@@ -437,25 +446,53 @@ export function CheckoutPage() {
       setCouponFieldError('Calcule o frete antes de validar o cupom.');
       return;
     }
-    const code = couponCodeDraft.trim();
+    const code = couponCodeDraft.trim().toUpperCase();
     if (!code) {
       setCouponFieldError('Informe o código do cupom.');
       return;
     }
+
+    if (appliedCoupons.some((c) => c.code.toUpperCase() === code)) {
+      setCouponFieldError('Este cupom já foi aplicado.');
+      return;
+    }
+
+    if (couponPaymentType === 'PROMOTIONAL_COUPON' && appliedCoupons.some((c) => c.paymentType === 'PROMOTIONAL_COUPON')) {
+      setCouponFieldError('É permitido no máximo um cupom promocional por compra (RN0033).');
+      return;
+    }
+
     try {
       const { amount } = await checkoutService.validateCheckoutCoupon(customerId, {
         code,
         paymentType: couponPaymentType,
       });
-      setAppliedCoupon({ code, paymentType: couponPaymentType, amount });
+
+      // Validar RN0036 (cupons desnecessários) com a inclusão deste novo cupom
+      const nextCoupons = [...appliedCoupons, { code, paymentType: couponPaymentType, amount }];
+      const grandCents = moneyToCents(Number(freight.grandTotal));
+      const hasUnnecessaryCoupon = nextCoupons.some((c) => {
+        const otherCouponsCents = nextCoupons
+          .filter((x) => x.code !== c.code)
+          .reduce((acc, x) => acc + moneyToCents(x.amount), 0);
+        return otherCouponsCents >= grandCents;
+      });
+
+      if (hasUnnecessaryCoupon) {
+        setCouponFieldError('Não é possível aplicar este cupom, pois ele é desnecessário para cobrir o total da compra (RN0036).');
+        return;
+      }
+
+      setAppliedCoupons(nextCoupons);
+      setCouponCodeDraft('');
       setMsg('Cupom aplicado.');
     } catch (e) {
       setCouponFieldError(getErrorMessage(e));
     }
   }
 
-  function clearCoupon() {
-    setAppliedCoupon(null);
+  function removeCoupon(code: string) {
+    setAppliedCoupons((prev) => prev.filter((c) => c.code !== code));
     setCouponFieldError(null);
     setMsg(null);
   }
@@ -535,7 +572,7 @@ export function CheckoutPage() {
     }
 
     const grandCents = moneyToCents(Number(freight.grandTotal));
-    const couponCents = appliedCoupon ? moneyToCents(appliedCoupon.amount) : 0;
+    const couponCents = appliedCoupons.reduce((acc, c) => acc + moneyToCents(c.amount), 0);
     const remainingCents = grandCents - couponCents;
     /* RN0036: valor do cupom pode exceder o total; o back-end emite cupom de troco (sem cartão). */
 
@@ -550,7 +587,7 @@ export function CheckoutPage() {
 
     const payCheck = validateCheckoutPaymentAmounts({
       grandTotal: Number(freight.grandTotal),
-      couponAmount: appliedCoupon ? appliedCoupon.amount : 0,
+      couponAmount: centsToMoney(couponCents),
       requiresCreditCard: remainingCents > 0,
       creditCardLineAmounts,
     });
@@ -563,13 +600,13 @@ export function CheckoutPage() {
     let newCard: checkoutService.NewCreditCardPayload | undefined;
     let saveNewCardToProfile: boolean | undefined;
 
-    if (appliedCoupon) {
+    appliedCoupons.forEach((c) => {
       lines.push({
-        paymentType: appliedCoupon.paymentType,
-        amount: centsToMoney(couponCents),
-        couponCode: appliedCoupon.code,
+        paymentType: c.paymentType,
+        amount: c.amount,
+        couponCode: c.code,
       });
-    }
+    });
 
     if (remainingCents > 0) {
       if (cardMode === 'saved') {
@@ -887,7 +924,7 @@ export function CheckoutPage() {
             <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50/50 p-4">
               <p className="text-sm font-medium text-ink">Cupom de troca ou promocional (opcional)</p>
               <p className="mt-1 text-xs text-ink-muted">
-                Você pode combinar 1 cupom com cartão. O valor da linha do cupom deve ser o valor fixo do cupom.
+                Você pode combinar cupons com cartão. O valor da linha do cupom deve ser o valor fixo do cupom.
               </p>
               <label className="mt-3 block text-sm">
                 <span className="font-medium">Tipo</span>
@@ -896,7 +933,7 @@ export function CheckoutPage() {
                   onChange={(e) =>
                     setCouponPaymentType(e.target.value as 'EXCHANGE_COUPON' | 'PROMOTIONAL_COUPON')
                   }
-                  disabled={!!appliedCoupon}
+                  disabled={!freight || summaryTotal <= 0}
                   className="mt-1 block w-full max-w-xs rounded border px-2 py-1.5 text-sm"
                 >
                   <option value="EXCHANGE_COUPON">Cupom de troca</option>
@@ -910,17 +947,25 @@ export function CheckoutPage() {
                   onChange={setCouponCodeDraft}
                   onApply={() => void applyCoupon()}
                   error={couponFieldError}
-                  disabled={!freight || !!appliedCoupon}
+                  disabled={!freight || summaryTotal <= 0}
                 />
               </div>
-              {appliedCoupon && (
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded border border-brand/30 bg-white px-3 py-2 text-sm">
-                  <span>
-                    <strong>{appliedCoupon.code}</strong> — {formatBRL(appliedCoupon.amount)}
-                  </span>
-                  <button type="button" onClick={clearCoupon} className="text-brand hover:underline">
-                    Remover
-                  </button>
+              {appliedCoupons.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Cupons Aplicados</p>
+                  {appliedCoupons.map((c) => (
+                    <div key={c.code} className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand/30 bg-white px-3 py-2 text-sm">
+                      <span>
+                        <span className="inline-block rounded bg-stone-200 px-2 py-0.5 text-xs font-bold text-stone-700 uppercase mr-2">
+                          {c.paymentType === 'PROMOTIONAL_COUPON' ? 'Promocional' : 'Troca'}
+                        </span>
+                        <strong>{c.code}</strong> — {formatBRL(c.amount)}
+                      </span>
+                      <button type="button" onClick={() => removeCoupon(c.code)} className="text-brand hover:underline">
+                        Remover
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

@@ -11,6 +11,7 @@ const nav = [
   { to: ROUTES.adminAudit, label: 'Auditoria' },
   { to: ROUTES.adminBooks, label: 'Livros' },
   { to: ROUTES.adminCustomers, label: 'Clientes' },
+  { to: ROUTES.adminCoupons, label: 'Cupons' },
 ] as const;
 
 export function AdminLayout() {

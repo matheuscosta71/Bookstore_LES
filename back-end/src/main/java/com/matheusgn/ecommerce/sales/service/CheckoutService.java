@@ -193,12 +193,15 @@ public class CheckoutService {
             }
             cart.getPaymentLines().add(pl);
         }
-        validateCardAndPromoRulesFromPaymentRequest(request);
+        BigDecimal itemsSubtotal = cart.getTotalAmount() != null ? cart.getTotalAmount().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        BigDecimal freight = cart.getFreightAmount() != null ? cart.getFreightAmount().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        BigDecimal grandTotal = itemsSubtotal.add(freight).setScale(2, RoundingMode.HALF_UP);
+        validateCardAndPromoRulesFromPaymentRequest(request, grandTotal);
         cartRepository.save(cart);
     }
 
     /** RN0033–RN0035: no máximo um cupom promocional; mínimo R$ 10 por linha de cartão (com exceções). */
-    private void validateCardAndPromoRulesFromPaymentRequest(CheckoutPaymentRequest request) {
+    private void validateCardAndPromoRulesFromPaymentRequest(CheckoutPaymentRequest request, BigDecimal grandTotal) {
         List<PaymentLineRequest> lines = request.getLines();
         long promoCount = lines.stream()
                 .filter(l -> l.getPaymentType() == PaymentType.PROMOTIONAL_COUPON)
@@ -206,6 +209,23 @@ public class CheckoutService {
         if (promoCount > 1) {
             throw new IllegalArgumentException("É permitido no máximo um cupom promocional por compra.");
         }
+
+        // RN0036: Validação de cupons desnecessários
+        List<PaymentLineRequest> couponLines = lines.stream()
+                .filter(l -> l.getPaymentType() == PaymentType.EXCHANGE_COUPON
+                        || l.getPaymentType() == PaymentType.PROMOTIONAL_COUPON)
+                .toList();
+        BigDecimal totalCouponAmount = couponLines.stream()
+                .map(PaymentLineRequest::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        for (PaymentLineRequest line : couponLines) {
+            BigDecimal remainingCouponAmount = totalCouponAmount.subtract(line.getAmount());
+            if (remainingCouponAmount.compareTo(grandTotal) >= 0) {
+                throw new IllegalArgumentException(
+                        "O cupom '" + line.getCouponCode() + "' é desnecessário pois os outros cupons já cobrem o valor total da compra.");
+            }
+        }
+
         long cardLineCount = lines.stream()
                 .filter(l -> l.getPaymentType() == PaymentType.CREDIT_CARD)
                 .count();
@@ -227,7 +247,7 @@ public class CheckoutService {
         }
     }
 
-    private void validateCardAndPromoRulesFromCart(Cart cart) {
+    private void validateCardAndPromoRulesFromCart(Cart cart, BigDecimal grandTotal) {
         List<CartPaymentLine> lines = cart.getPaymentLines();
         long promoCount = lines.stream()
                 .filter(l -> l.getPaymentType() == PaymentType.PROMOTIONAL_COUPON)
@@ -235,6 +255,23 @@ public class CheckoutService {
         if (promoCount > 1) {
             throw new IllegalArgumentException("É permitido no máximo um cupom promocional por compra.");
         }
+
+        // RN0036: Validação de cupons desnecessários
+        List<CartPaymentLine> couponLines = lines.stream()
+                .filter(l -> l.getPaymentType() == PaymentType.EXCHANGE_COUPON
+                        || l.getPaymentType() == PaymentType.PROMOTIONAL_COUPON)
+                .toList();
+        BigDecimal totalCouponAmount = couponLines.stream()
+                .map(CartPaymentLine::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        for (CartPaymentLine line : couponLines) {
+            BigDecimal remainingCouponAmount = totalCouponAmount.subtract(line.getAmount());
+            if (remainingCouponAmount.compareTo(grandTotal) >= 0) {
+                throw new IllegalArgumentException(
+                        "O cupom '" + line.getCouponCode() + "' é desnecessário pois os outros cupons já cobrem o valor total da compra.");
+            }
+        }
+
         long cardLineCount = lines.stream()
                 .filter(l -> l.getPaymentType() == PaymentType.CREDIT_CARD)
                 .count();
@@ -283,7 +320,7 @@ public class CheckoutService {
         BigDecimal freight = cart.getFreightAmount().setScale(2, RoundingMode.HALF_UP);
         BigDecimal grandTotal = itemsSubtotal.add(freight).setScale(2, RoundingMode.HALF_UP);
 
-        validateCardAndPromoRulesFromCart(cart);
+        validateCardAndPromoRulesFromCart(cart, grandTotal);
 
         BigDecimal paid = cart.getPaymentLines().stream()
                 .map(CartPaymentLine::getAmount)

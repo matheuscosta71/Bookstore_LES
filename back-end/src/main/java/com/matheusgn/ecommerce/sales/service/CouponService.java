@@ -2,11 +2,15 @@ package com.matheusgn.ecommerce.sales.service;
 
 import com.matheusgn.ecommerce.customer.entity.Customer;
 import com.matheusgn.ecommerce.customer.repository.CustomerRepository;
+import com.matheusgn.ecommerce.sales.dto.CouponResponse;
+import com.matheusgn.ecommerce.sales.dto.CreateCouponRequest;
 import com.matheusgn.ecommerce.sales.entity.Coupon;
 import com.matheusgn.ecommerce.sales.entity.CouponType;
 import com.matheusgn.ecommerce.sales.entity.PaymentType;
 import com.matheusgn.ecommerce.sales.repository.CouponRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -114,5 +118,59 @@ public class CouponService {
             code = prefix + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         } while (couponRepository.existsByCodeIgnoreCase(code));
         return code;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CouponResponse> listAllCoupons(Pageable pageable) {
+        return couponRepository.findAll(pageable).map(this::toResponse);
+    }
+
+    @Transactional
+    public CouponResponse createCoupon(CreateCouponRequest request) {
+        if (couponRepository.existsByCodeIgnoreCase(request.getCode().trim())) {
+            throw new IllegalArgumentException("Já existe um cupom cadastrado com este código.");
+        }
+
+        Customer customer = null;
+        if (request.getCustomerId() != null) {
+            customer = customerRepository.findById(request.getCustomerId())
+                    .orElseThrow(() -> new com.matheusgn.ecommerce.exception.ResourceNotFoundException("Cliente não encontrado"));
+        }
+
+        Coupon coupon = Coupon.builder()
+                .code(request.getCode().trim().toUpperCase())
+                .type(request.getType())
+                .amount(request.getAmount())
+                .active(true)
+                .expirationDate(request.getExpirationDate())
+                .customer(customer)
+                .redeemed(false)
+                .build();
+
+        coupon = couponRepository.save(coupon);
+        return toResponse(coupon);
+    }
+
+    @Transactional
+    public CouponResponse toggleActive(UUID couponId) {
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new com.matheusgn.ecommerce.exception.ResourceNotFoundException("Cupom não encontrado"));
+        coupon.setActive(!coupon.isActive());
+        coupon = couponRepository.save(coupon);
+        return toResponse(coupon);
+    }
+
+    public CouponResponse toResponse(Coupon coupon) {
+        return CouponResponse.builder()
+                .id(coupon.getId())
+                .code(coupon.getCode())
+                .type(coupon.getType())
+                .amount(coupon.getAmount())
+                .active(coupon.isActive())
+                .expirationDate(coupon.getExpirationDate())
+                .redeemed(coupon.isRedeemed())
+                .customerId(coupon.getCustomer() != null ? coupon.getCustomer().getId() : null)
+                .customerName(coupon.getCustomer() != null ? coupon.getCustomer().getFullName() : null)
+                .build();
     }
 }

@@ -234,5 +234,35 @@ class PaymentServiceTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("inativo");
         }
+
+        @Test
+        @DisplayName("givenUnnecessaryCoupon_whenApplyPayment_thenThrowsException")
+        void unnecessaryCouponThrows() {
+            when(cartService.getOpenCartOrThrow(customerId)).thenReturn(cart);
+
+            CheckoutPaymentRequest req = CheckoutPaymentRequest.builder()
+                    .lines(List.of(
+                            PaymentLineRequest.builder()
+                                    .paymentType(PaymentType.EXCHANGE_COUPON)
+                                    .amount(new BigDecimal("30.00"))
+                                    .couponCode("TROCA1")
+                                    .build(),
+                            PaymentLineRequest.builder()
+                                    .paymentType(PaymentType.EXCHANGE_COUPON)
+                                    .amount(new BigDecimal("30.00"))
+                                    .couponCode("TROCA2")
+                                    .build(),
+                            PaymentLineRequest.builder()
+                                    .paymentType(PaymentType.EXCHANGE_COUPON)
+                                    .amount(new BigDecimal("30.00"))
+                                    .couponCode("TROCA3")
+                                    .build()
+                    ))
+                    .build();
+
+            assertThatThrownBy(() -> checkoutService.applyPayment(customerId, req))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("desnecessário");
+        }
     }
 }

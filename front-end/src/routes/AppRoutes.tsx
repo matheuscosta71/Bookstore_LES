@@ -23,6 +23,7 @@ import { AdminInventoryPage } from '@/pages/AdminInventoryPage';
 import { AdminAuditPage } from '@/pages/AdminAuditPage';
 import { AdminBooksPage } from '@/pages/AdminBooksPage';
 import { AdminCustomersPage } from '@/pages/AdminCustomersPage';
+import { AdminCouponsPage } from '@/pages/AdminCouponsPage';
 import { AiChatPage } from '@/pages/AiChatPage';
 import { STORAGE_CUSTOMER_ID } from '@/constants/storageKeys';
 import { ROUTES } from '@/constants/routes';
@@ -114,6 +115,7 @@ export function AppRoutes() {
           <Route path="audit" element={<AdminAuditPage />} />
           <Route path="books" element={<AdminBooksPage />} />
           <Route path="customers" element={<AdminCustomersPage />} />
+          <Route path="coupons" element={<AdminCouponsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
