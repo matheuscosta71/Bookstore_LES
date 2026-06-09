@@ -11,6 +11,8 @@ import {
 
 test.describe('01 — Compra básica completa (via UI)', () => {
   test('cliente se cadastra, adiciona livro e finaliza compra', async ({ page }) => {
+    page.on('console', msg => console.log('BROWSER LOG:', msg.type(), msg.text()));
+    page.on('pageerror', err => console.log('BROWSER EXCEPTION:', err.message));
     const customer = makeCustomerPayload({ password: 'StrongPass!1' });
 
     // 1. Cadastro e login automático

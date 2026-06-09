@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { adminLogin } from '../helpers/admin';
 
 test.describe('RF0055 / dashboard admin', () => {
   test('carrega resumo sem erro e mostra pedidos > 0', async ({ page }) => {
+    await adminLogin(page);
     await page.goto('/admin/analytics');
 
     await expect(page.getByRole('heading', { name: /Dashboard de vendas/i })).toBeVisible();

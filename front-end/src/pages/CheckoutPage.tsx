@@ -553,7 +553,7 @@ export function CheckoutPage() {
       customerId,
       checkoutAllowed: cart?.checkoutAllowed ?? false,
       hasFreight: Boolean(freight),
-      hasCoupon: Boolean(appliedCoupon),
+      hasCoupon: appliedCoupons.length > 0,
     });
     if (!cart?.checkoutAllowed) {
       appLogger.warn('CheckoutPage', 'runPay', 'Bloqueado: itens expirados no carrinho', { customerId });

@@ -122,7 +122,7 @@ export async function dispatchLatestOrderViaUI(page: Page): Promise<void> {
 export async function deliverLatestOrderViaUI(page: Page): Promise<void> {
   await page.goto('/admin/orders');
   await page.waitForLoadState('networkidle');
-  const deliverBtn = page.getByRole('button', { name: /Confirmar entrega/i }).first();
+  const deliverBtn = page.getByRole('button', { name: /Entregue/i }).first();
   await deliverBtn.waitFor({ state: 'visible', timeout: 15_000 });
   await deliverBtn.click();
   await page.waitForTimeout(1_500);

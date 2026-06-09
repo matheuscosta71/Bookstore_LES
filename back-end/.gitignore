@@ -16,3 +16,11 @@ pnpm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Maven/Java Ignores
+/target/
+/bin/
+*.class
+.classpath
+.project
+.settings/

@@ -131,7 +131,7 @@ test.describe('09 — Sistema gera cupom de troca (RF0044)', () => {
 
     if (cardAmount > 0.5) {
       // Precisa de cartão para completar
-      const cardRes = await fetch(`${BACKEND_URL}/customers/${customer.id}/credit-cards`, {
+      const cardRes = await fetch(`${BACKEND_URL}/customers/${customer.id}/cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,11 +147,15 @@ test.describe('09 — Sistema gera cupom de troca (RF0044)', () => {
       lines.push({ paymentType: 'CREDIT_CARD', amount: cardAmount, creditCardId: card.id });
     }
 
-    await fetch(`${BACKEND_URL}/customers/${customer.id}/checkout/payment`, {
+    const payRes = await fetch(`${BACKEND_URL}/customers/${customer.id}/checkout/payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lines }),
     });
+    if (!payRes.ok) {
+      console.log('PAYMENT ERROR STATUS:', payRes.status);
+      console.log('PAYMENT ERROR BODY:', await payRes.text());
+    }
 
     const newOrder = await finalizeCheckoutViaApi(customer.id);
     expect(newOrder.status).toBe('EM_PROCESSAMENTO');
@@ -183,7 +187,7 @@ test.describe('09 — Sistema gera cupom de troca (RF0044)', () => {
     });
     const { amount } = (await validateRes.json()) as { amount: number };
 
-    const cardRes = await fetch(`${BACKEND_URL}/customers/${customer.id}/credit-cards`, {
+    const cardRes = await fetch(`${BACKEND_URL}/customers/${customer.id}/cards`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cardholderName: 'T', cardNumber: '4111111111111111', brand: 'VISA', expirationMonth: 12, expirationYear: 2030, preferred: true }),
@@ -194,12 +198,17 @@ test.describe('09 — Sistema gera cupom de troca (RF0044)', () => {
     const lines: any[] = [{ paymentType: 'EXCHANGE_COUPON', amount, couponCode }];
     if (cardAmount > 0) lines.push({ paymentType: 'CREDIT_CARD', amount: cardAmount, creditCardId: card.id });
 
-    await fetch(`${BACKEND_URL}/customers/${customer.id}/checkout/payment`, {
+    const payRes2 = await fetch(`${BACKEND_URL}/customers/${customer.id}/checkout/payment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lines }),
     });
-    await finalizeCheckoutViaApi(customer.id);
+    if (!payRes2.ok) {
+      console.log('PAYMENT 2 ERROR STATUS:', payRes2.status);
+      console.log('PAYMENT 2 ERROR BODY:', await payRes2.text());
+    }
+    const order = await finalizeCheckoutViaApi(customer.id);
+    await approvePaymentViaApi(order.id);
 
     // Tenta usar o mesmo cupom novamente — deve falhar
     const book2 = await ensureBookInStock();

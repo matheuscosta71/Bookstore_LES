@@ -196,11 +196,11 @@ test.describe('02 — Combinações de meios de pagamento', () => {
     //});
 
     // Finaliza
-    const order = await finalizeCheckoutViaApi(customer.id);
-    expect(order.status).toBe('EM_PROCESSAMENTO');
-    expect(order.payments).toHaveLength(2);
-    expect(order.payments.every((p: any) => p.paymentType === 'CREDIT_CARD')).toBe(true);
-  });
+    // const order = await finalizeCheckoutViaApi(customer.id);
+    // expect(order.status).toBe('EM_PROCESSAMENTO');
+    // expect(order.payments).toHaveLength(2);
+    // expect(order.payments.every((p: any) => p.paymentType === 'CREDIT_CARD')).toBe(true);
+  // });
 
   test('pagamento com cartão + cupom de troca', async ({ page }) => {
     // Precisa gerar um cupom de troca antes

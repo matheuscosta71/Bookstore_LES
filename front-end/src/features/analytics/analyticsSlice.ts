@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { SalesLineChart } from '@/types/api';
+import type { SalesLineChart, SalesCategoryVolumeChart } from '@/types/api';
 import * as analyticsService from '@/services/analyticsService';
 
 type AnalyticsState = {
@@ -7,6 +7,7 @@ type AnalyticsState = {
   endDate: string;
   summary: analyticsService.SalesSummaryDto | null;
   lineChart: SalesLineChart | null;
+  categoryVolumeChart: SalesCategoryVolumeChart | null;
   books: analyticsService.BookSalesRow[];
   categories: analyticsService.CategorySalesRow[];
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
@@ -30,6 +31,7 @@ const initialState: AnalyticsState = {
   endDate: dr.endDate,
   summary: null,
   lineChart: null,
+  categoryVolumeChart: null,
   books: [],
   categories: [],
   status: 'idle',
@@ -39,15 +41,17 @@ const initialState: AnalyticsState = {
 export const loadAnalyticsDashboard = createAsyncThunk(
   'analytics/load',
   async (arg: { startDate: string; endDate: string }) => {
-    const [summary, lineChart, booksRes, catRes] = await Promise.all([
+    const [summary, lineChart, categoryVolumeChart, booksRes, catRes] = await Promise.all([
       analyticsService.fetchSalesSummary(arg.startDate, arg.endDate),
       analyticsService.fetchSalesLineChart(arg.startDate, arg.endDate),
+      analyticsService.fetchSalesCategoryVolumeChart(arg.startDate, arg.endDate),
       analyticsService.fetchSalesByBooks(arg.startDate, arg.endDate),
       analyticsService.fetchSalesByCategories(arg.startDate, arg.endDate),
     ]);
     return {
       summary,
       lineChart,
+      categoryVolumeChart,
       books: booksRes.books ?? [],
       categories: catRes.categories ?? [],
     };
@@ -72,6 +76,7 @@ const analyticsSlice = createSlice({
       s.status = 'succeeded';
       s.summary = a.payload.summary;
       s.lineChart = a.payload.lineChart;
+      s.categoryVolumeChart = a.payload.categoryVolumeChart;
       s.books = a.payload.books;
       s.categories = a.payload.categories;
     });

@@ -1,5 +1,5 @@
 import { adminApi } from './api';
-import type { SalesLineChart } from '@/types/api';
+import type { SalesLineChart, SalesCategoryVolumeChart } from '@/types/api';
 
 export type SalesSummaryDto = {
   totalRevenue: number;
@@ -37,6 +37,19 @@ export async function fetchSalesLineChart(
   const { data } = await adminApi.get<SalesLineChart>('/analytics/sales-history/line-chart', {
     params: { startDate, endDate },
   });
+  return data;
+}
+
+export async function fetchSalesCategoryVolumeChart(
+  startDate: string,
+  endDate: string,
+): Promise<SalesCategoryVolumeChart> {
+  const { data } = await adminApi.get<SalesCategoryVolumeChart>(
+    '/analytics/sales-history/category-volume-chart',
+    {
+      params: { startDate, endDate },
+    },
+  );
   return data;
 }
 

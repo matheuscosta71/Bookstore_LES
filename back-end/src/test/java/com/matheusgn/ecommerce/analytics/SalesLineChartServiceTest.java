@@ -1,6 +1,8 @@
 package com.matheusgn.ecommerce.analytics;
 
 import com.matheusgn.ecommerce.analytics.service.SalesLineChartService;
+import com.matheusgn.ecommerce.domain.entity.Category;
+import com.matheusgn.ecommerce.domain.repository.CategoryRepository;
 import com.matheusgn.ecommerce.sales.repository.OrderItemRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +25,9 @@ class SalesLineChartServiceTest {
 
     @Mock
     private OrderItemRepository orderItemRepository;
+
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @InjectMocks
     private SalesLineChartService salesLineChartService;
@@ -54,5 +59,38 @@ class SalesLineChartServiceTest {
         int idx = res.getLabels().indexOf("2026-01-02");
         assertThat(idx).isGreaterThanOrEqualTo(0);
         assertThat(res.getValues().get(idx)).isEqualByComparingTo(new BigDecimal("150.50"));
+    }
+
+    @Test
+    void categoryVolumeChart_mapsMonthlyVolumesAndTreatsEmptyCategories() {
+        Category cat1 = Category.builder().name("Ficção").build();
+        Category cat2 = Category.builder().name("Software").build();
+        when(categoryRepository.findAll()).thenReturn(List.of(cat1, cat2));
+
+        List<Object[]> rows = List.of(
+                new Object[]{"2026-01", "Ficção", 10},
+                new Object[]{"2026-02", "Ficção", 15},
+                new Object[]{"2026-02", "Software", 5}
+        );
+        when(orderItemRepository.aggregateVolumeByMonthAndCategory(any(Instant.class), any(Instant.class)))
+                .thenReturn(rows);
+
+        var res = salesLineChartService.categoryVolumeChart(
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 3, 1)
+        );
+
+        assertThat(res.getLabels()).containsExactly("2026-01", "2026-02", "2026-03");
+        assertThat(res.getSeries()).hasSize(2);
+
+        var ficcaoSeries = res.getSeries().stream()
+                .filter(s -> s.getCategory().equals("Ficção"))
+                .findFirst().orElseThrow();
+        assertThat(ficcaoSeries.getVolumes()).containsExactly(10, 15, 0);
+
+        var softwareSeries = res.getSeries().stream()
+                .filter(s -> s.getCategory().equals("Software"))
+                .findFirst().orElseThrow();
+        assertThat(softwareSeries.getVolumes()).containsExactly(0, 5, 0);
     }
 }

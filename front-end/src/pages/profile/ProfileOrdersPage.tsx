@@ -89,7 +89,7 @@ export function ProfileOrdersPage() {
     <div>
       <h1 className="font-display text-2xl font-semibold">Meus pedidos</h1>
       <p className="mt-1 text-sm text-ink-muted">
-        Troca: permitida apenas para pedido entregue, podendo devolver itens individualmente.
+        Troca: permitida apenas para pedido recebido, podendo devolver itens individualmente.
       </p>
       {feedback && <p className="mt-3 text-sm text-green-700">{feedback}</p>}
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

@@ -35,24 +35,21 @@ test.describe('10 — Admin confirma entrega do produto', () => {
     await page.goto('/admin/orders');
     await page.waitForLoadState('networkidle');
 
-    // Filtra por EM_TRANSITO
-    const statusSelect = page.locator('select').first();
-    if (await statusSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await statusSelect.selectOption('EM_TRANSITO');
-      await page.waitForTimeout(1_000);
-    }
+    const orderLabel = order.orderNumber ?? order.id.slice(0, 8);
 
-    const orderRow = page.locator(`text=${order.id.slice(0, 8)}`).first();
-    if (await orderRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await orderRow.click();
-    }
+    // Busca pelo label do pedido
+    const searchInput = page.locator('input').first();
+    await searchInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await searchInput.fill(orderLabel);
+    await page.getByRole('button', { name: /^Buscar$/i }).click();
+    await page.waitForLoadState('networkidle');
 
-    // Clica em "Confirmar entrega"
-    const deliverBtn = page.getByRole('button', { name: /Confirmar entrega/i }).first();
+    const row = page.locator('tr').filter({ hasText: orderLabel });
+    const deliverBtn = row.getByRole('button', { name: /Entregue/i });
     await deliverBtn.waitFor({ state: 'visible', timeout: 15_000 });
     await deliverBtn.click();
 
-    await expect(page.getByText(/ENTREGUE/i)).toBeVisible({ timeout: 10_000 });
+    await expect(row.locator('span').filter({ hasText: /Entregue/i })).toBeVisible({ timeout: 10_000 });
 
     // Confirma via API
     const res = await fetch(`${BACKEND_URL}/admin/orders?size=50`, {
@@ -71,7 +68,7 @@ test.describe('10 — Admin confirma entrega do produto', () => {
 
     const res = await fetch(`${BACKEND_URL}/admin/orders/${order.id}/deliver`, {
       method: 'PATCH',
-     headers: { 'X-Admin-Key': 'admin' }
+     headers: { 'X-Admin-Key': ADMIN_KEY }
     });
     expect(res.ok).toBe(true);
     const updated = (await res.json()) as { status: string };
