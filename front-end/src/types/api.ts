@@ -154,6 +154,16 @@ export type SalesLineChart = {
   values: number[];
 };
 
+export type CategoryVolumeSeries = {
+  category: string;
+  volumes: number[];
+};
+
+export type SalesCategoryVolumeChart = {
+  labels: string[];
+  series: CategoryVolumeSeries[];
+};
+
 export type SalesSummary = {
   totalRevenue?: number;
   totalOrders?: number;

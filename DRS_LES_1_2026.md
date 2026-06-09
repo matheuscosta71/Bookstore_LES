@@ -1,4 +1,4 @@
-# Documento de requisitos — E-commerce de livros
+cd # Documento de requisitos — E-commerce de livros
 
 **Disciplina:** LES — 1º semestre de 2026  
 

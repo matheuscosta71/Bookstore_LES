@@ -103,7 +103,8 @@ public class DemoDataSeederService {
 
         for (int i = 0; i < 28; i++) {
             CustomerSeed c = customers.get(i % customers.size());
-            int daysAgo = 1 + rnd.nextInt(span);
+            int monthOffset = i / 2;
+            int daysAgo = monthOffset * 30 + (i % 2) * 10 + 2;
             LocalTime t = LocalTime.of(9 + rnd.nextInt(10), rnd.nextInt(60));
             Instant when = today.minusDays(daysAgo).atTime(t).atZone(ZoneOffset.UTC).toInstant();
             UUID bookId = bookIds.get(rnd.nextInt(bookIds.size()));

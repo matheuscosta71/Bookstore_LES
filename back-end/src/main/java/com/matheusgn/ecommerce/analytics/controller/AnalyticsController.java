@@ -1,5 +1,6 @@
 package com.matheusgn.ecommerce.analytics.controller;
 
+import com.matheusgn.ecommerce.analytics.dto.SalesCategoryVolumeResponse;
 import com.matheusgn.ecommerce.analytics.dto.SalesHistoryBooksResponse;
 import com.matheusgn.ecommerce.analytics.dto.SalesHistoryCategoriesResponse;
 import com.matheusgn.ecommerce.analytics.dto.SalesHistorySummaryResponse;
@@ -68,5 +69,15 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         adminOrderService.assertAdmin(adminKey);
         return ResponseEntity.ok(salesLineChartService.lineChart(startDate, endDate));
+    }
+
+    @GetMapping("/sales-history/category-volume-chart")
+    @Operation(summary = "RF0055 — Volume de vendas por categoria e mês (gráfico de linhas)")
+    public ResponseEntity<SalesCategoryVolumeResponse> salesCategoryVolumeChart(
+            @RequestHeader("X-Admin-Key") String adminKey,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        adminOrderService.assertAdmin(adminKey);
+        return ResponseEntity.ok(salesLineChartService.categoryVolumeChart(startDate, endDate));
     }
 }

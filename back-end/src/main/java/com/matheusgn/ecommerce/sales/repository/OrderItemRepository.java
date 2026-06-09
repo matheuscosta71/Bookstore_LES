@@ -50,6 +50,17 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             """, nativeQuery = true)
     List<Object[]> aggregateRevenueByDay(Instant start, Instant end);
 
+    @Query(value = """
+            select FORMATDATETIME(o.created_at, 'yyyy-MM'), b.category, cast(coalesce(sum(oi.quantity), 0) as integer)
+            from order_items oi
+            join sales_orders o on o.id = oi.order_id
+            join books b on b.id = oi.book_id
+            where o.created_at >= ?1 and o.created_at < ?2
+            group by FORMATDATETIME(o.created_at, 'yyyy-MM'), b.category
+            order by 1, 2
+            """, nativeQuery = true)
+    List<Object[]> aggregateVolumeByMonthAndCategory(Instant start, Instant end);
+
     @Query("""
             select oi from OrderItem oi
             join fetch oi.book

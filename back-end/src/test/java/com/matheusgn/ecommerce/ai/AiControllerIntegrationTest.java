@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -153,6 +154,32 @@ class AiControllerIntegrationTest {
                             .content("{\"message\":\"ping\"}"))
                     .andExpect(status().isServiceUnavailable())
                     .andExpect(jsonPath("$.title").value("Provedor de IA indisponível"));
+        }
+
+        @Test
+        @DisplayName("Cenário 1 — Recomendação de produto compatível")
+        void shouldRecommendCompatibleProductWhenAvailable() throws Exception {
+            String aiResponse = "Para aprender programação, recomendo os seguintes livros cadastrados: 'Clean Code' e 'Arquitetura Limpa'.";
+            when(aiProviderClient.complete(anyString(), contains("Quero aprender programação"))).thenReturn(aiResponse);
+
+            mockMvc.perform(post("/ai/chat")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"message\":\"Quero aprender programação\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.reply").value(aiResponse));
+        }
+
+        @Test
+        @DisplayName("Cenário 2 — Ausência de produto compatível")
+        void shouldReturnAppropriateMessageWhenNoCompatibleProduct() throws Exception {
+            String aiResponse = "Não encontrei recomendações compatíveis com a sua solicitação de bicicleta. Tente buscar por outros temas.";
+            when(aiProviderClient.complete(anyString(), contains("Quero comprar uma bicicleta"))).thenReturn(aiResponse);
+
+            mockMvc.perform(post("/ai/chat")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"message\":\"Quero comprar uma bicicleta\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.reply").value(aiResponse));
         }
     }
 }
