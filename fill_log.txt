@@ -1,0 +1,6 @@
+Starting fill_use_case script
+Template path: C:\Users\Matheus Costa\Downloads\matheus-gn\UC_FATEC.doc
+Output path: C:\Users\Matheus Costa\Downloads\matheus-gn\Especificacao_Caso_de_Uso_Venda.doc
+Initializing Microsoft Word COM Application...
+Word COM Application initialized successfully
+Opening template in READ-ONLY mode: C:\Users\Matheus Costa\Downloads\matheus-gn\UC_FATEC.doc...

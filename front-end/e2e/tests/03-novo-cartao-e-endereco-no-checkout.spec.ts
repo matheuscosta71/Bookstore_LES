@@ -49,7 +49,7 @@ test.describe('03 — Novo cartão e endereço no checkout (via UI)', () => {
     const calcularFreteBtn = page.locator('button', { hasText: /Calcular frete/i });
     await calcularFreteBtn.waitFor({ state: 'visible', timeout: 10_000 });
     await calcularFreteBtn.click();
-    await page.waitForTimeout(2_000);
+    await page.waitForTimeout(200);
 
     // Verifica que o botão de finalizar ficou disponível
     await expect(page.getByRole('button', { name: /Finalizar compra/i })).toBeVisible();
@@ -109,7 +109,7 @@ test.describe('03 — Novo cartão e endereço no checkout (via UI)', () => {
     const calcBtn = page.locator('button', { hasText: /Calcular frete/i });
     if (await calcBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await calcBtn.click();
-      await page.waitForTimeout(1_500);
+      await page.waitForTimeout(150);
     }
 
     // Seleciona opção "Novo cartão"
@@ -131,7 +131,7 @@ test.describe('03 — Novo cartão e endereço no checkout (via UI)', () => {
   name: /Adicionar cartão ao perfil/i
 }).click();
 
-await page.waitForTimeout(2000);
+await page.waitForTimeout(200);
 
 const calcBtn2 = page.locator('button', {
   hasText: /Calcular frete/i
@@ -139,7 +139,7 @@ const calcBtn2 = page.locator('button', {
 
 await calcBtn2.click();
 
-await page.waitForTimeout(3000);
+await page.waitForTimeout(300);
 
 const finalizarBtn = page.getByRole('button', {
   name: /Finalizar compra/i
@@ -190,7 +190,7 @@ await finalizarBtn.click();
     const calcBtn = page.locator('button', { hasText: /Calcular frete/i });
     if (await calcBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await calcBtn.click();
-      await page.waitForTimeout(1_500);
+      await page.waitForTimeout(150);
     }
 
     // 2. Novo cartão
@@ -211,7 +211,7 @@ await finalizarBtn.click();
   name: /Adicionar cartão ao perfil/i
 }).click();
 
-await page.waitForTimeout(2000);
+await page.waitForTimeout(200);
 
 const calcBtn2 = page.locator('button', {
   hasText: /Calcular frete/i
@@ -219,7 +219,7 @@ const calcBtn2 = page.locator('button', {
 
 await calcBtn2.click();
 
-await page.waitForTimeout(3000);
+await page.waitForTimeout(300);
 
 const finalizarBtn = page.getByRole('button', {
   name: /Finalizar compra/i

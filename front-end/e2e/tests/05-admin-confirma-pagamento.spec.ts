@@ -28,7 +28,7 @@ test.describe('05 — Admin confirma/rejeita pagamento', () => {
 
     
     await page.getByRole('button', { name: /^Ver$/i }).first().click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(50);
 
     
     const approveBtn = page.getByRole('button', { name: /Aprovar pagamento/i }).first();
@@ -69,7 +69,7 @@ test.describe('05 — Admin confirma/rejeita pagamento', () => {
 
     
     await page.getByRole('button', { name: /^Ver$/i }).first().click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(50);
 
     
     const rejectBtn = page.getByRole('button', { name: /Rejeitar pagamento/i }).first();

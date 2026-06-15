@@ -68,7 +68,7 @@ async function irParaCheckout(page: any) {
     timeout: 15000,
   });
 
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(200);
 
   // Seleciona endereço
   const deliveryRadio = page.locator('input[type="radio"]').first();
@@ -98,7 +98,7 @@ async function irParaCheckout(page: any) {
     force: true,
   });
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(300);
 }
 
 async function finalizarCheckout(page: any) {
@@ -156,51 +156,31 @@ test.describe('02 — Combinações de meios de pagamento', () => {
     await finalizarCheckout(page);
   });
 
- // test('pagamento com dois cartões (divisão de valor)', async ({ page }) => {
- //   const customer = await createCustomerViaApi();
-  // await loginCustomerViaUI(page, customer.email, customer.password);
+  test('pagamento com dois cartões (divisão de valor)', async ({ page }) => {
+    const customer = await createCustomerViaApi();
+    await loginCustomerViaUI(page, customer.email, customer.password);
 
-   // const book = await ensureBookInStock();
- //   await addBookToCartViaApi(customer.id, book.id);
-  //  const delivId = await createAddressViaApi(customer.id, 'DELIVERY');
-  //  await createAddressViaApi(customer.id, 'BILLING');
+    const book = await ensureBookInStock();
+    await addBookToCartViaApi(customer.id, book.id);
+    const delivId = await createAddressViaApi(customer.id, 'DELIVERY');
+    await createAddressViaApi(customer.id, 'BILLING');
 
     // Cria dois cartões
-    //await createCardViaApi(customer.id, false); // cartão 2
-  //  await createCardViaApi(customer.id, true);  // cartão 1 (preferred)
-   // await setCheckoutAddressViaApi(customer.id, delivId);
+    await createCardViaApi(customer.id, false); // cartão 2
+    await createCardViaApi(customer.id, true);  // cartão 1 (preferred)
+    await setCheckoutAddressViaApi(customer.id, delivId);
 
-    // Calcula o total para dividir via API
-    //const freightRes = await fetch(`${BACKEND_URL}/customers/${customer.id}/checkout/freight`, {
-    //  method: 'POST',
-     // body: JSON.stringify({ addressId: delivId }),
-   // });
-   // const freight = (await freightRes.json()) as { grandTotal: number };
-   // const half = parseFloat((freight.grandTotal / 2).toFixed(2));
-    //const rest = parseFloat((freight.grandTotal - half).toFixed(2));
-//
-    // Obtém lista de cartões
-    //const cardsRes = await fetch(`${BACKEND_URL}/customers/${customer.id}/credit-cards`);
-    //const cards = (await cardsRes.json()) as Array<{ id: string }>;
+    await irParaCheckout(page);
 
-    // Define pagamento com dois cartões via API
-    //await fetch(`${BACKEND_URL}/customers/${customer.id}/checkout/payment`, {
-    //  method: 'POST',
-     // headers: { 'Content-Type': 'application/json' },
-      //body: JSON.stringify({
-      //  lines: [
-      //    { paymentType: 'CREDIT_CARD', amount: half, creditCardId: cards[0].id },
-       //   { paymentType: 'CREDIT_CARD', amount: rest, creditCardId: cards[1].id },
-      //  ],
-     // }),
-    //});
+    // Adiciona o segundo cartão na divisão de pagamento pela UI
+    const addCardSelect = page.locator('#add-card-select');
+    await addCardSelect.waitFor({ state: 'visible', timeout: 10000 });
+    await addCardSelect.selectOption({ index: 1 });
 
-    // Finaliza
-    // const order = await finalizeCheckoutViaApi(customer.id);
-    // expect(order.status).toBe('EM_PROCESSAMENTO');
-    // expect(order.payments).toHaveLength(2);
-    // expect(order.payments.every((p: any) => p.paymentType === 'CREDIT_CARD')).toBe(true);
-  // });
+    await page.waitForTimeout(500);
+
+    await finalizarCheckout(page);
+  });
 
   test('pagamento com cartão + cupom de troca', async ({ page }) => {
     // Precisa gerar um cupom de troca antes

@@ -4,6 +4,7 @@ import com.matheusgn.ecommerce.ai.client.AiProviderClient;
 import com.matheusgn.ecommerce.ai.exception.AiProviderException;
 import com.matheusgn.ecommerce.ai.service.AiRecommendationService;
 import com.matheusgn.ecommerce.book.entity.Book;
+import com.matheusgn.ecommerce.book.repository.BookRepository;
 import com.matheusgn.ecommerce.customer.entity.Customer;
 import com.matheusgn.ecommerce.customer.repository.CustomerRepository;
 import com.matheusgn.ecommerce.feedback.entity.Feedback;
@@ -39,6 +40,8 @@ class AiRecommendationServiceTest {
 
     @Mock
     private AiProviderClient aiProviderClient;
+    @Mock
+    private BookRepository bookRepository;
     @Mock
     private CustomerRepository customerRepository;
     @Mock
@@ -196,7 +199,7 @@ class AiRecommendationServiceTest {
         aiRecommendationService.recommend(id);
 
         verify(aiProviderClient).complete(systemCaptor.capture(), userCaptor.capture());
-        assertThat(systemCaptor.getValue()).contains("livraria");
+        assertThat(systemCaptor.getValue()).contains("Livraria");
         assertThat(userCaptor.getValue()).contains("João Silva").contains("joao@livraria.com");
     }
 }

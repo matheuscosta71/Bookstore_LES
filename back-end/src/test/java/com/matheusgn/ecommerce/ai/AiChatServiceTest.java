@@ -5,6 +5,7 @@ import com.matheusgn.ecommerce.ai.dto.ChatRequest;
 import com.matheusgn.ecommerce.ai.exception.AiProviderException;
 import com.matheusgn.ecommerce.ai.service.AiChatService;
 import com.matheusgn.ecommerce.book.entity.Book;
+import com.matheusgn.ecommerce.book.repository.BookRepository;
 import com.matheusgn.ecommerce.customer.entity.Customer;
 import com.matheusgn.ecommerce.customer.repository.CustomerRepository;
 import com.matheusgn.ecommerce.feedback.entity.Feedback;
@@ -39,6 +40,8 @@ class AiChatServiceTest {
 
     @Mock
     private AiProviderClient aiProviderClient;
+    @Mock
+    private BookRepository bookRepository;
     @Mock
     private CustomerRepository customerRepository;
     @Mock
@@ -163,6 +166,6 @@ class AiChatServiceTest {
         aiChatService.chat(ChatRequest.builder().message("z").build());
 
         verify(aiProviderClient).complete(sys.capture(), anyString());
-        assertThat(sys.getValue()).contains("chatbot").contains("livraria");
+        assertThat(sys.getValue()).contains("assistente").contains("Livraria");
     }
 }

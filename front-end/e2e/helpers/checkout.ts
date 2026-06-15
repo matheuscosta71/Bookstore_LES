@@ -60,8 +60,7 @@ export async function addCardViaProfile(page: Page, payload: CardPayload): Promi
   }
 
   await page.getByRole('button', { name: /Adicionar cartão/i }).click();
-  await expect(page.getByText(payload.cardholderName, { exact: false })).toBeVisible();
-  await expect(page.getByText(`${payload.expirationMonth}/${payload.expirationYear}`, { exact: false })).toBeVisible();
+  await expect(page.getByText(`${payload.cardholderName} — ${payload.expirationMonth}/${payload.expirationYear}`)).toBeVisible();
 }
 
 
@@ -121,7 +120,7 @@ export async function addFirstBookToCartViaUI(page: Page, maxAttempts = 5): Prom
   await addBtn.first().click();
 
   // Aguarda resultado: sucesso (redireciona) ou erro de estoque
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(200);
 
   const estoqueInsuficiente = page.getByText(/Estoque insuficiente/i);
   if (await estoqueInsuficiente.isVisible()) {
@@ -150,7 +149,7 @@ await page.waitForURL(/\/checkout/, {
   timeout: 15000,
 });
 
-await page.waitForTimeout(2000);
+await page.waitForTimeout(200);
 
 
   const deliveryRadio = page.locator('input[type="radio"]').first();
@@ -183,7 +182,7 @@ await page.waitForTimeout(2000);
   await calcularFreteBtn.click({ force: true });
 
   
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(300);
 
 
   const finalizarBtn = page.getByRole('button', {

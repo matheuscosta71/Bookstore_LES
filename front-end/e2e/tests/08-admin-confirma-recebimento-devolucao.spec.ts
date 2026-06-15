@@ -49,7 +49,7 @@ test.describe('08 — Admin confirma recebimento do produto devolvido', () => {
     const statusSelect = page.locator('select').first();
     if (await statusSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await statusSelect.selectOption('TROCA_AUTORIZADA');
-      await page.waitForTimeout(1_000);
+      await page.waitForTimeout(100);
     }
 
     // Clica em "Receber + estoque"
@@ -73,7 +73,7 @@ test.describe('08 — Admin confirma recebimento do produto devolvido', () => {
     const statusSelect = page.locator('select').first();
     if (await statusSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await statusSelect.selectOption('TROCA_AUTORIZADA');
-      await page.waitForTimeout(1_000);
+      await page.waitForTimeout(100);
     }
 
     const receberSemBtn = page.getByRole('button', { name: /Receber sem estoque/i }).first();

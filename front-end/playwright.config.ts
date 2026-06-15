@@ -23,6 +23,10 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    launchOptions: {
+      // Adiciona atraso entre ações (em milissegundos) para podermos ver o fluxo em detalhes
+      slowMo: process.env.PW_SLOWMO ? parseInt(process.env.PW_SLOWMO, 10) : 1000,
+    },
   },
   projects: [
     {

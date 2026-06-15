@@ -29,7 +29,7 @@ test.describe('RF0055 / Análise de Vendas com Gráfico de Linhas por Categoria'
     await page.locator('#analytics-apply-btn').click();
 
     // Aguardar que a requisição de atualização termine e os componentes re-renderizem
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(100);
 
     // 3. Validar se o gráfico de volume por categoria está visível
     const chartSection = page.locator('#sales-category-volume-section');

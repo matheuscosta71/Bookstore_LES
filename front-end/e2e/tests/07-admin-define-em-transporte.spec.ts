@@ -28,7 +28,7 @@ test.describe('07 — Admin define produto EM TRANSPORTE', () => {
     const statusSelect = page.locator('select').first();
     if (await statusSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await statusSelect.selectOption('APROVADO');
-      await page.waitForTimeout(1_000);
+      await page.waitForTimeout(100);
     }
 
     const orderRow = page.locator(`text=${order.id.slice(0, 8)}`).first();
@@ -39,14 +39,14 @@ test.describe('07 — Admin define produto EM TRANSPORTE', () => {
     const dispatchBtn = page.getByRole('button', { name: /Despachar/i }).first();
     await dispatchBtn.waitFor({ state: 'visible', timeout: 15_000 });
     await dispatchBtn.click();
-    await page.waitForTimeout(1_500);
+    await page.waitForTimeout(150);
 
 // Limpa o filtro de status e busca pelo ID do pedido
 const orderIdShort = order.id.slice(-5).toUpperCase();
 await page.locator('select').first().selectOption('');
 await page.locator('input[placeholder*="FE9"]').fill(orderIdShort);
 await page.getByRole('button', { name: /Buscar/i }).click();
-await page.waitForTimeout(1_000);
+await page.waitForTimeout(100);
 
 await expect(
   page.locator(`tr:has-text("#${orderIdShort}")`).getByText(/Em trânsito/i)

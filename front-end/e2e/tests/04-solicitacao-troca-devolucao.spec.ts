@@ -131,7 +131,7 @@ test.describe('04 — Solicitação de troca / devolução', () => {
     await page.reload();
 
     // Botão "Solicitar troca" NÃO deve estar visível para pedido APROVADO
-    await page.waitForTimeout(2_000);
+    await page.waitForTimeout(200);
     const trocaBtn = page.getByRole('button', { name: /Solicitar troca/i });
     await expect(trocaBtn).not.toBeVisible();
   });

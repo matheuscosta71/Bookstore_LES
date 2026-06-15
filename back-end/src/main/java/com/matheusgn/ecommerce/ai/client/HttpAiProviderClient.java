@@ -16,7 +16,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -111,6 +114,27 @@ public class HttpAiProviderClient implements AiProviderClient {
                    "(como Ficção, Literatura, Infantil, Romance) ou perguntar sobre os livros disponíveis no nosso acervo!";
         }
 
+        // 1b. Check for incompatible activities (reading while sleeping, swimming, etc.)
+        boolean mentionsReading = normalized.contains("ler") || normalized.contains("leitura")
+                || normalized.contains("lendo") || normalized.contains("livro");
+        String[] incompatibleActivities = {
+                "dormindo", "dormir", "nadar", "nadando", "cozinhando", "cozinhar",
+                "dirigindo", "dirigir", "tomando banho", "banho", "correndo", "correr",
+                "malhando", "malhar", "exercicio", "academia", "bicicleta", "pedalando",
+                "futebol", "jogando", "surfando", "surfar", "mergulhando", "mergulhar",
+                "escalando", "escalar", "pilotando", "pilotar", "operando", "operar"
+        };
+        if (mentionsReading) {
+            for (String activity : incompatibleActivities) {
+                if (normalized.contains(activity)) {
+                    return "Hmm, não é possível ler enquanto você está " + activity + "! 😊 " +
+                           "Mas posso recomendar livros sobre esse tema para você ler antes ou depois. " +
+                           "Que tal me contar que tipo de livro você gosta? Temos opções em Ficção, " +
+                           "Literatura, Infantil e outras categorias!";
+                }
+            }
+        }
+
         // 2. Query books from the database if bookRepository is available
         List<Book> dbBooks = List.of();
         if (bookRepository != null) {
@@ -197,17 +221,49 @@ public class HttpAiProviderClient implements AiProviderClient {
 
         // If no keyword match but user asked for recommendations or suggestions
         if (normalized.contains("recomenda") || normalized.contains("sugest") || normalized.contains("indica") || normalized.contains("livro")) {
+            // Shuffle to vary results on each call
+            List<Book> shuffled = new ArrayList<>(activeBooks);
+            Collections.shuffle(shuffled);
+
+            // Deduplicate by normalized title — also catches variants like
+            // "1984", "Nineteen Eighty-Four", "1984 / Nineteen Eighty-Four"
+            List<String> seenTitles = new ArrayList<>();
+            List<Book> unique = new ArrayList<>();
+            for (Book b : shuffled) {
+                String normTitle = b.getTitle().toLowerCase()
+                        .replaceAll("[^a-z0-9]", "");
+                boolean isDuplicate = false;
+                for (String seen : seenTitles) {
+                    if (normTitle.contains(seen) || seen.contains(normTitle)) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+                if (!isDuplicate && unique.size() < 4) {
+                    seenTitles.add(normTitle);
+                    unique.add(b);
+                }
+            }
+
             StringBuilder sb = new StringBuilder();
-            sb.append("Aqui estão alguns dos livros mais populares em destaque na nossa loja hoje:\n\n");
-            int count = 0;
-            for (Book b : activeBooks) {
-                if (count >= 4) break;
-                sb.append("- **").append(b.getTitle()).append("** (").append(b.getCategory() != null ? b.getCategory() : "Geral").append(")");
+            sb.append("Aqui estão algumas sugestões de livros do nosso acervo para você:\n\n");
+            for (Book b : unique) {
+                sb.append("- **").append(b.getTitle()).append("**");
+                if (b.getAuthor() != null && !b.getAuthor().isBlank()) {
+                    sb.append(" por ").append(b.getAuthor());
+                }
+                sb.append(" (").append(b.getCategory() != null ? b.getCategory() : "Geral").append(")");
                 if (b.getSalePrice() != null) {
                     sb.append(" — R$ ").append(b.getSalePrice());
                 }
+                if (b.getSynopsis() != null && !b.getSynopsis().isBlank()) {
+                    String syn = b.getSynopsis();
+                    if (syn.length() > 100) {
+                        syn = syn.substring(0, 97) + "...";
+                    }
+                    sb.append("\n  *").append(syn).append("*");
+                }
                 sb.append("\n");
-                count++;
             }
             sb.append("\nPosso ajudar você a encontrar algum tema específico ou autor?");
             return sb.toString();

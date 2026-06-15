@@ -48,7 +48,7 @@ test.describe('06 — Admin aceita/nega troca', () => {
     const statusSelect = page.locator('select').first();
     if (await statusSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await statusSelect.selectOption('EM_TROCA');
-      await page.waitForTimeout(1_000);
+      await page.waitForTimeout(100);
     }
 
     // Clica em "Autorizar" para a solicitação
@@ -94,14 +94,14 @@ test.describe('06 — Admin aceita/nega troca', () => {
     const statusSelect = page.locator('select').first();
     if (await statusSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await statusSelect.selectOption('EM_TROCA');
-      await page.waitForTimeout(1_000);
+      await page.waitForTimeout(100);
     }
 
     // Abre detalhes do pedido
     const orderRow = page.locator(`text=${order.id.slice(0, 8)}`).first();
     if (await orderRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await orderRow.click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(50);
     }
 
     // Clica em "Autorizar troca (RF0041)"

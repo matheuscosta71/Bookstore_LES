@@ -13,13 +13,14 @@ app:
     password: admin
   demo:
     seed:
+
       enabled: true
       days-back: 21
       # Deve coincidir com o 1º livro em DemoDataSeederService (The Great Gatsby — capa na Open Library).
       marker-isbn: "9780743273565"
   ai:
     base-url: https://api.openai.com/v1
-    api-key: "sk-proj-9CGmxi-DEVELOPMENT-FALLBACK-KEY"
+    api-key: "${OPENAI_API_KEY:sk-proj-DEVELOPMENT-FALLBACK-KEY}"
     model: gpt-4o-mini
     connect-timeout-ms: 5000
     read-timeout-ms: 60000
