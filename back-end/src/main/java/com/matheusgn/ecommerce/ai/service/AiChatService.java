@@ -113,9 +113,24 @@ public class AiChatService {
         }
 
         // 3. Append user message
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            ctx.append("=== HISTÓRICO DA CONVERSA ===\n");
+            for (var msg : request.getHistory()) {
+                ctx.append("user".equals(msg.getRole()) ? "Usuário: " : "Assistente: ")
+                   .append(msg.getContent())
+                   .append("\n");
+            }
+            ctx.append("=== FIM DO HISTÓRICO ===\n\n");
+        }
+
         ctx.append("\nMensagem do usuário: ").append(request.getMessage());
 
-        String reply = aiProviderClient.complete(SYSTEM, ctx.toString());
+        String reply;
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            reply = aiProviderClient.complete(SYSTEM, request.getHistory(), ctx.toString());
+        } else {
+            reply = aiProviderClient.complete(SYSTEM, ctx.toString());
+        }
         return ChatResponse.builder().reply(reply).build();
     }
 }

@@ -10,7 +10,11 @@ export async function fetchRecommendations(customerId: string): Promise<Recommen
   return data;
 }
 
-export async function sendChat(message: string, customerId?: string): Promise<ChatResponse> {
-  const { data } = await api.post<ChatResponse>('/ai/chat', { message, customerId });
+export async function sendChat(
+  message: string,
+  customerId?: string,
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<ChatResponse> {
+  const { data } = await api.post<ChatResponse>('/ai/chat', { message, customerId, history });
   return data;
 }

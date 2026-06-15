@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.matheusgn.ecommerce.ai.config.AiProperties;
 import com.matheusgn.ecommerce.ai.exception.AiProviderException;
+import com.matheusgn.ecommerce.ai.dto.ChatMessageDto;
 import com.matheusgn.ecommerce.book.repository.BookRepository;
 import com.matheusgn.ecommerce.book.entity.Book;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,11 @@ public class HttpAiProviderClient implements AiProviderClient {
 
     @Override
     public String complete(String systemPrompt, String userMessage) {
+        return complete(systemPrompt, Collections.emptyList(), userMessage);
+    }
+
+    @Override
+    public String complete(String systemPrompt, List<ChatMessageDto> history, String userMessage) {
         boolean isDefaultOrBlank = aiProperties.getApiKey() == null
                 || aiProperties.getApiKey().isBlank()
                 || aiProperties.getApiKey().startsWith("sk-proj-9CGmxi");
@@ -43,7 +49,7 @@ public class HttpAiProviderClient implements AiProviderClient {
                 && !aiProperties.getBaseUrl().contains("8080");
 
         if (isDefaultOrBlank && !isLocalMockServer) {
-            return getFallbackResponse(systemPrompt, userMessage);
+            return getFallbackResponse(systemPrompt, history, userMessage);
         }
 
         if (aiProperties.getApiKey() == null || aiProperties.getApiKey().isBlank()) {
@@ -53,9 +59,19 @@ public class HttpAiProviderClient implements AiProviderClient {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("model", aiProperties.getModel());
         ArrayNode messages = body.putArray("messages");
+        
         ObjectNode sys = messages.addObject();
         sys.put("role", "system");
         sys.put("content", systemPrompt);
+
+        if (history != null) {
+            for (ChatMessageDto msg : history) {
+                ObjectNode m = messages.addObject();
+                m.put("role", msg.getRole());
+                m.put("content", msg.getContent());
+            }
+        }
+
         ObjectNode usr = messages.addObject();
         usr.put("role", "user");
         usr.put("content", userMessage);
@@ -77,21 +93,25 @@ public class HttpAiProviderClient implements AiProviderClient {
             return content.asText();
         } catch (AiProviderException e) {
             if (isLocalMockServer) throw e;
-            return getFallbackResponse(systemPrompt, userMessage);
+            return getFallbackResponse(systemPrompt, history, userMessage);
         } catch (RestClientResponseException e) {
             if (isLocalMockServer) {
                 throw new AiProviderException("Falha ao chamar provedor de IA: HTTP " + e.getStatusCode(), e);
             }
-            return getFallbackResponse(systemPrompt, userMessage);
+            return getFallbackResponse(systemPrompt, history, userMessage);
         } catch (Exception e) {
             if (isLocalMockServer) {
                 throw new AiProviderException("Falha ao processar resposta da IA", e);
             }
-            return getFallbackResponse(systemPrompt, userMessage);
+            return getFallbackResponse(systemPrompt, history, userMessage);
         }
     }
 
     private String getFallbackResponse(String systemPrompt, String userMessage) {
+        return getFallbackResponse(systemPrompt, Collections.emptyList(), userMessage);
+    }
+
+    private String getFallbackResponse(String systemPrompt, List<ChatMessageDto> history, String userMessage) {
         String query = userMessage != null ? userMessage : "";
         int index = query.lastIndexOf("Mensagem do usuário: ");
         if (index != -1) {
@@ -219,8 +239,23 @@ public class HttpAiProviderClient implements AiProviderClient {
             return sb.toString();
         }
 
+        boolean isPositiveResponse = normalized.equals("sim") || normalized.equals("s") || normalized.equals("quero") || normalized.equals("claro");
+        boolean wasOfferedRecommendation = false;
+        if (history != null && !history.isEmpty()) {
+            for (int i = history.size() - 1; i >= 0; i--) {
+                ChatMessageDto msg = history.get(i);
+                if ("assistant".equals(msg.getRole())) {
+                    String assistantContent = msg.getContent().toLowerCase();
+                    if (assistantContent.contains("recomendar") || assistantContent.contains("sugest") || assistantContent.contains("indica")) {
+                        wasOfferedRecommendation = true;
+                    }
+                    break;
+                }
+            }
+        }
+
         // If no keyword match but user asked for recommendations or suggestions
-        if (normalized.contains("recomenda") || normalized.contains("sugest") || normalized.contains("indica") || normalized.contains("livro")) {
+        if (normalized.contains("recomenda") || normalized.contains("sugest") || normalized.contains("indica") || normalized.contains("livro") || (isPositiveResponse && wasOfferedRecommendation)) {
             // Shuffle to vary results on each call
             List<Book> shuffled = new ArrayList<>(activeBooks);
             Collections.shuffle(shuffled);

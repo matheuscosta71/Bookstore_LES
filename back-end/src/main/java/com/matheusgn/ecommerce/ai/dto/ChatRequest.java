@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -23,4 +24,7 @@ public class ChatRequest {
 
     @Schema(description = "Opcional: enriquece o contexto com dados do cliente")
     private UUID customerId;
+
+    @Schema(description = "Opcional: histórico da conversa")
+    private List<ChatMessageDto> history;
 }

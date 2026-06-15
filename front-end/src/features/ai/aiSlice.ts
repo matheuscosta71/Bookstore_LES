@@ -29,8 +29,12 @@ export const fetchAiRecommendations = createAsyncThunk(
 
 export const sendChatMessage = createAsyncThunk(
   'ai/chat',
-  async ({ message, customerId }: { message: string; customerId?: string }) => {
-    const res = await aiService.sendChat(message, customerId);
+  async ({ message, customerId }: { message: string; customerId?: string }, thunkAPI) => {
+    const state = thunkAPI.getState() as { ai: AiState };
+    const history = state.ai.messages
+      .slice(0, -1)
+      .map((m) => ({ role: m.role, content: m.content }));
+    const res = await aiService.sendChat(message, customerId, history);
     return res.reply;
   },
 );
