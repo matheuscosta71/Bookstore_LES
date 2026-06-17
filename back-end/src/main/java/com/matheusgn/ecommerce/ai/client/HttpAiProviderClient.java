@@ -42,7 +42,7 @@ public class HttpAiProviderClient implements AiProviderClient {
     public String complete(String systemPrompt, List<ChatMessageDto> history, String userMessage) {
         boolean isDefaultOrBlank = aiProperties.getApiKey() == null
                 || aiProperties.getApiKey().isBlank()
-                || aiProperties.getApiKey().startsWith("sk-proj-9CGmxi");
+                || aiProperties.getApiKey().equals("sk-proj-DEVELOPMENT-FALLBACK-KEY");
 
         boolean isLocalMockServer = aiProperties.getBaseUrl() != null 
                 && (aiProperties.getBaseUrl().contains("localhost") || aiProperties.getBaseUrl().contains("127.0.0.1"))
@@ -118,14 +118,7 @@ public class HttpAiProviderClient implements AiProviderClient {
             query = query.substring(index + "Mensagem do usuário: ".length()).trim();
         }
 
-        String normalized = query.toLowerCase()
-                .replaceAll("[áàâã]", "a")
-                .replaceAll("[éèê]", "e")
-                .replaceAll("[íìî]", "i")
-                .replaceAll("[óòôõ]", "o")
-                .replaceAll("[úùû]", "u")
-                .replaceAll("[ç]", "c")
-                .trim();
+        String normalized = normalize(query);
 
         // 1. Check if it's a general greeting
         if (normalized.matches("^(oi|ola|bom dia|boa tarde|boa noite|ola!|oi!|hello|hi)(\\s.*)?$")) {
@@ -165,9 +158,30 @@ public class HttpAiProviderClient implements AiProviderClient {
             }
         }
 
+        String[] words = normalized.split("\\s+");
+
+        boolean techRequested = normalized.contains("tecnolog") || normalized.contains("tecno") || normalized.contains("program") || normalized.contains("codig") || normalized.contains("desenvolv") || normalized.contains("clean code") || normalized.contains("arquitet")
+                || matchesAny(words, "tecnologia", "tecnologico", "programacao", "codigo", "desenvolvimento", "software", "computador", "computer")
+                || matchesPhrase(normalized, "clean code") || matchesPhrase(normalized, "arquitetura limpa");
+
+        boolean fictionRequested = normalized.contains("ficc") || normalized.contains("distop") || normalized.contains("futur") || normalized.contains("orwell") || normalized.contains("trono") || normalized.contains("game of thrones") || normalized.contains("fantasi")
+                || matchesAny(words, "ficcao", "distopia", "distopico", "fantasia", "futuro", "futurista", "orwell")
+                || matchesPhrase(normalized, "game of thrones") || matchesPhrase(normalized, "trono de ferro");
+
+        boolean literatureRequested = normalized.contains("literat") || normalized.contains("liter") || normalized.contains("classic") || normalized.contains("gatsby") || normalized.contains("harper lee") || normalized.contains("mockingbird") || normalized.contains("catcher")
+                || matchesAny(words, "literatura", "classico", "classicos", "gatsby", "catcher", "mockingbird")
+                || matchesPhrase(normalized, "harper lee");
+
+        boolean childrenRequested = normalized.contains("infant") || normalized.contains("infan") || normalized.contains("crianc") || normalized.contains("brux") || normalized.contains("harry potter") || normalized.contains("rowling") || normalized.contains("magia")
+                || matchesAny(words, "infantil", "infantis", "crianca", "criancas", "bruxo", "bruxos", "magia", "rowling")
+                || matchesPhrase(normalized, "harry potter");
+
+        boolean romanceRequested = normalized.contains("romanc") || normalized.contains("amor") || normalized.contains("romant")
+                || matchesAny(words, "romance", "romantico", "romantica", "amor");
+
         // 3. Fallback static list if database is empty or unavailable
         if (dbBooks.isEmpty()) {
-            return getStaticFallbackResponse(normalized);
+            return getStaticFallbackResponse(techRequested, fictionRequested, literatureRequested, childrenRequested, romanceRequested);
         }
 
         // Filter active books
@@ -177,34 +191,35 @@ public class HttpAiProviderClient implements AiProviderClient {
 
         // 4. Check for keyword matches in title, author, or category
         List<Book> recommendations = new ArrayList<>();
-        boolean techRequested = normalized.contains("tecnologia") || normalized.contains("programacao") || normalized.contains("codigo") || normalized.contains("desenvolvimento") || normalized.contains("clean code") || normalized.contains("arquitetura");
-        boolean fictionRequested = normalized.contains("ficcao") || normalized.contains("distopia") || normalized.contains("futuro") || normalized.contains("orwell") || normalized.contains("tronos") || normalized.contains("game of thrones") || normalized.contains("fantasia");
-        boolean literatureRequested = normalized.contains("literatura") || normalized.contains("classico") || normalized.contains("gatsby") || normalized.contains("harper lee") || normalized.contains("mockingbird");
-        boolean childrenRequested = normalized.contains("infantil") || normalized.contains("crianca") || normalized.contains("bruxo") || normalized.contains("harry potter") || normalized.contains("rowling") || normalized.contains("magia");
-        boolean romanceRequested = normalized.contains("romance") || normalized.contains("amor") || normalized.contains("romantico");
 
         for (Book book : activeBooks) {
-            String titleLower = book.getTitle().toLowerCase();
-            String authorLower = book.getAuthor() != null ? book.getAuthor().toLowerCase() : "";
-            String categoryLower = book.getCategory() != null ? book.getCategory().toLowerCase() : "";
+            String titleNorm = normalize(book.getTitle());
+            String authorNorm = normalize(book.getAuthor());
+            String categoryNorm = normalize(book.getCategory());
 
             boolean match = false;
-            if (techRequested && (categoryLower.contains("tecnologia") || categoryLower.contains("computers") || categoryLower.contains("software") || titleLower.contains("clean code") || titleLower.contains("arquitetura"))) {
+            if (techRequested && (categoryNorm.contains("tecnolog") || categoryNorm.contains("tecno") || categoryNorm.contains("computer") || categoryNorm.contains("softwar") || titleNorm.contains("clean code") || titleNorm.contains("arquitet"))) {
                 match = true;
-            } else if (fictionRequested && (categoryLower.contains("ficcao") || categoryLower.contains("fiction") || titleLower.contains("1984") || titleLower.contains("orwell") || titleLower.contains("thrones"))) {
+            } else if (fictionRequested && (categoryNorm.contains("ficc") || categoryNorm.contains("fiction") || titleNorm.contains("1984") || titleNorm.contains("orwell") || titleNorm.contains("trono") || titleNorm.contains("game of thrones"))) {
                 match = true;
-            } else if (literatureRequested && (categoryLower.contains("literatura") || categoryLower.contains("literature") || titleLower.contains("gatsby") || titleLower.contains("mockingbird") || titleLower.contains("catcher"))) {
+            } else if (literatureRequested && (categoryNorm.contains("literat") || categoryNorm.contains("liter") || categoryNorm.contains("literature") || titleNorm.contains("gatsby") || titleNorm.contains("mockingbird") || titleNorm.contains("catcher"))) {
                 match = true;
-            } else if (childrenRequested && (categoryLower.contains("infantil") || categoryLower.contains("children") || titleLower.contains("harry potter"))) {
+            } else if (childrenRequested && (categoryNorm.contains("infan") || categoryNorm.contains("infant") || categoryNorm.contains("children") || titleNorm.contains("harry potter"))) {
                 match = true;
-            } else if (romanceRequested && (categoryLower.contains("romance") || categoryLower.contains("amor"))) {
+            } else if (romanceRequested && (categoryNorm.contains("romanc") || categoryNorm.contains("amor") || categoryNorm.contains("romant"))) {
                 match = true;
             }
 
-            // Also direct title/author substring match
+            // Also direct title/author substring match or fuzzy match
             if (!match && !normalized.isBlank() && normalized.length() > 2) {
-                if (titleLower.contains(normalized) || authorLower.contains(normalized)) {
+                if (titleNorm.contains(normalized) || authorNorm.contains(normalized)) {
                     match = true;
+                } else {
+                    String[] titleWords = titleNorm.split("\\s+");
+                    String[] authorWords = authorNorm.split("\\s+");
+                    if (matchesAny(words, titleWords) || matchesAny(words, authorWords)) {
+                        match = true;
+                    }
                 }
             }
 
@@ -239,6 +254,19 @@ public class HttpAiProviderClient implements AiProviderClient {
             return sb.toString();
         }
 
+        // If a specific category was requested but nothing was found in the catalog
+        if (techRequested || fictionRequested || literatureRequested || childrenRequested || romanceRequested) {
+            String requestedCategory = "";
+            if (romanceRequested) requestedCategory = "Romance";
+            else if (techRequested) requestedCategory = "Tecnologia";
+            else if (fictionRequested) requestedCategory = "Ficção";
+            else if (literatureRequested) requestedCategory = "Literatura";
+            else if (childrenRequested) requestedCategory = "Infantil";
+
+            return "Desculpe, não encontrei livros do tema " + requestedCategory + " no nosso catálogo no momento. " +
+                   "Que tal buscar por outros assuntos como Ficção, Literatura ou Infantil?";
+        }
+
         boolean isPositiveResponse = normalized.equals("sim") || normalized.equals("s") || normalized.equals("quero") || normalized.equals("claro");
         boolean wasOfferedRecommendation = false;
         if (history != null && !history.isEmpty()) {
@@ -246,7 +274,7 @@ public class HttpAiProviderClient implements AiProviderClient {
                 ChatMessageDto msg = history.get(i);
                 if ("assistant".equals(msg.getRole())) {
                     String assistantContent = msg.getContent().toLowerCase();
-                    if (assistantContent.contains("recomendar") || assistantContent.contains("sugest") || assistantContent.contains("indica")) {
+                    if (assistantContent.contains("recomenda") || assistantContent.contains("sugest") || assistantContent.contains("indica")) {
                         wasOfferedRecommendation = true;
                     }
                     break;
@@ -309,20 +337,28 @@ public class HttpAiProviderClient implements AiProviderClient {
                "Que tal buscar por outros assuntos como Ficção, Literatura, Infantil ou pesquisar pelo nome de um autor/título que você gosta?";
     }
 
-    private String getStaticFallbackResponse(String normalized) {
-        if (normalized.contains("ficcao") || normalized.contains("distopia") || normalized.contains("orwell")) {
+    private String getStaticFallbackResponse(boolean techRequested, boolean fictionRequested, boolean literatureRequested, boolean childrenRequested, boolean romanceRequested) {
+        if (fictionRequested) {
             return "Com base no nosso acervo de Ficção, recomendo:\n\n" +
                    "- **1984** por George Orwell (R$ 45.00) — A brilhante distopia sobre o Grande Irmão.\n" +
                    "- **A Game of Thrones** por George R. R. Martin (R$ 59.99) — Épico de fantasia medieval.";
         }
-        if (normalized.contains("literatura") || normalized.contains("classico") || normalized.contains("gatsby")) {
+        if (literatureRequested) {
             return "Aqui estão ótimos clássicos de Literatura:\n\n" +
                    "- **The Great Gatsby** por F. Scott Fitzgerald (R$ 49.90) — Um retrato dos anos loucos de Nova York.\n" +
                    "- **To Kill a Mockingbird** por Harper Lee (R$ 52.00) — Discussão marcante sobre preconceito e justiça.";
         }
-        if (normalized.contains("infantil") || normalized.contains("harry potter")) {
+        if (childrenRequested) {
             return "Para o público Infantil:\n\n" +
                    "- **Harry Potter Paperback Box Set (Books 1–7)** por J. K. Rowling (R$ 299.00) — A saga completa do jovem bruxo.";
+        }
+        if (romanceRequested) {
+            return "Desculpe, não encontrei livros do tema Romance no nosso catálogo no momento. " +
+                   "Que tal buscar por outros assuntos como Ficção, Literatura ou Infantil?";
+        }
+        if (techRequested) {
+            return "Desculpe, não encontrei livros do tema Tecnologia no nosso catálogo no momento. " +
+                   "Que tal buscar por outros assuntos como Ficção, Literatura ou Infantil?";
         }
         return "Olá! Sou o assistente virtual da Livraria Matheus GN. Que tal dar uma olhada nos nossos livros em destaque?\n\n" +
                "- **The Great Gatsby** (Literatura)\n" +
@@ -330,5 +366,72 @@ public class HttpAiProviderClient implements AiProviderClient {
                "- **To Kill a Mockingbird** (Literatura)\n" +
                "- **Harry Potter Box Set** (Infantil)\n\n" +
                "Como posso ajudar mais hoje?";
+    }
+
+    private String normalize(String input) {
+        if (input == null) return "";
+        return input.toLowerCase()
+                .replaceAll("[áàâã]", "a")
+                .replaceAll("[éèê]", "e")
+                .replaceAll("[íìî]", "i")
+                .replaceAll("[óòôõ]", "o")
+                .replaceAll("[úùû]", "u")
+                .replaceAll("[ç]", "c")
+                .trim();
+    }
+
+    private int getLevenshteinDistance(String s1, String s2) {
+        int[] costs = new int[s2.length() + 1];
+        for (int i = 0; i <= s1.length(); i++) {
+            int lastValue = i;
+            for (int j = 0; j <= s2.length(); j++) {
+                if (i == 0) {
+                    costs[j] = j;
+                } else if (j > 0) {
+                    int newValue = costs[j - 1];
+                    if (s1.charAt(i - 1) != s2.charAt(j - 1)) {
+                        newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                    }
+                    costs[j - 1] = lastValue;
+                    lastValue = newValue;
+                }
+            }
+            if (i > 0) {
+                costs[s2.length()] = lastValue;
+            }
+        }
+        return costs[s2.length()];
+    }
+
+    private boolean isSimilar(String word, String keyword) {
+        String w = normalize(word);
+        String k = normalize(keyword);
+        if (w.equals(k)) {
+            return true;
+        }
+        if (w.length() < 4 || k.length() < 4) {
+            return false;
+        }
+        if (w.contains(k) || k.contains(w)) {
+            return true;
+        }
+        int distance = getLevenshteinDistance(w, k);
+        int limit = w.length() >= 6 ? 2 : 1;
+        return distance <= limit;
+    }
+
+    private boolean matchesAny(String[] words, String... keywords) {
+        for (String word : words) {
+            for (String kw : keywords) {
+                if (isSimilar(word, kw)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesPhrase(String query, String phrase) {
+        return normalize(query).contains(normalize(phrase));
     }
 }

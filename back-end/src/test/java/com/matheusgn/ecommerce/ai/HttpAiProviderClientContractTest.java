@@ -194,4 +194,147 @@ class HttpAiProviderClientContractTest {
         assertThatThrownBy(() -> clientWithTimeouts(props, 2000, 80).complete("s", "u"))
                 .isInstanceOf(AiProviderException.class);
     }
+
+    @Test
+    @DisplayName("deve retornar recomendacoes quando no fallback apos primeira interacao")
+    void shouldReturnRecommendationsInFallbackAfterFirstInteraction() throws Exception {
+        AiProperties props = new AiProperties();
+        props.setBaseUrl("https://api.openai.com/v1"); // non-local to trigger fallback
+        props.setApiKey(""); // default/blank to trigger fallback
+
+        // Mock BookRepository
+        var bookRepositoryMock = org.mockito.Mockito.mock(com.matheusgn.ecommerce.book.repository.BookRepository.class);
+        var book = com.matheusgn.ecommerce.book.entity.Book.builder()
+                .id(java.util.UUID.randomUUID())
+                .title("Clean Code")
+                .author("Robert C. Martin")
+                .category("Tecnologia")
+                .salePrice(new java.math.BigDecimal("89.90"))
+                .stockQuantity(5)
+                .active(true)
+                .build();
+        org.mockito.Mockito.when(bookRepositoryMock.findAll()).thenReturn(java.util.List.of(book));
+
+        HttpAiProviderClient client = client(props);
+        org.springframework.test.util.ReflectionTestUtils.setField(client, "bookRepository", bookRepositoryMock);
+
+        java.util.List<com.matheusgn.ecommerce.ai.dto.ChatMessageDto> history = java.util.List.of(
+                new com.matheusgn.ecommerce.ai.dto.ChatMessageDto("user", "oi"),
+                new com.matheusgn.ecommerce.ai.dto.ChatMessageDto("assistant", 
+                        "Olá! Eu sou o assistente virtual da Livraria Matheus GN. " +
+                        "Como posso ajudar você hoje? Você pode me pedir recomendações de livros por tema " +
+                        "(como Ficção, Literatura, Infantil, Romance) ou perguntar sobre os livros disponíveis no nosso acervo!")
+        );
+
+        String reply = client.complete("system", history, "Mensagem do usuário: sim");
+
+        assertThat(reply).contains("Clean Code");
+        assertThat(reply).contains("sugestões");
+    }
+
+    @Test
+    @DisplayName("deve retornar fallback assertivo para Romance quando nenhum livro de Romance estiver cadastrado")
+    void shouldReturnAssertiveRomanceFallbackWhenNoRomanceBooks() throws Exception {
+        AiProperties props = new AiProperties();
+        props.setBaseUrl("https://api.openai.com/v1");
+        props.setApiKey("");
+
+        // Mock BookRepository returning only a Technology book (no romance)
+        var bookRepositoryMock = org.mockito.Mockito.mock(com.matheusgn.ecommerce.book.repository.BookRepository.class);
+        var book = com.matheusgn.ecommerce.book.entity.Book.builder()
+                .id(java.util.UUID.randomUUID())
+                .title("Clean Code")
+                .author("Robert C. Martin")
+                .category("Tecnologia")
+                .salePrice(new java.math.BigDecimal("89.90"))
+                .stockQuantity(5)
+                .active(true)
+                .build();
+        org.mockito.Mockito.when(bookRepositoryMock.findAll()).thenReturn(java.util.List.of(book));
+
+        HttpAiProviderClient client = client(props);
+        org.springframework.test.util.ReflectionTestUtils.setField(client, "bookRepository", bookRepositoryMock);
+
+        String reply = client.complete("system", "quais livros são de romance?");
+
+        assertThat(reply).contains("não encontrei livros do tema Romance");
+        assertThat(reply).doesNotContain("Clean Code");
+    }
+
+    @Test
+    @DisplayName("deve retornar fallback assertivo estatico para Romance quando banco estiver vazio")
+    void shouldReturnAssertiveRomanceFallbackStaticWhenDbEmpty() {
+        AiProperties props = new AiProperties();
+        props.setBaseUrl("https://api.openai.com/v1");
+        props.setApiKey("");
+
+        // BookRepository returns empty list
+        var bookRepositoryMock = org.mockito.Mockito.mock(com.matheusgn.ecommerce.book.repository.BookRepository.class);
+        org.mockito.Mockito.when(bookRepositoryMock.findAll()).thenReturn(java.util.List.of());
+
+        HttpAiProviderClient client = client(props);
+        org.springframework.test.util.ReflectionTestUtils.setField(client, "bookRepository", bookRepositoryMock);
+
+        String reply = client.complete("system", "quais livros são de romance?");
+
+        assertThat(reply).contains("não encontrei livros do tema Romance");
+    }
+
+    @Test
+    @DisplayName("deve retornar recomendacao de infantil mesmo com erro de grafia ou plural como infanis")
+    void shouldReturnInfantilRecommendationsWhenQueryHasTypo() throws Exception {
+        AiProperties props = new AiProperties();
+        props.setBaseUrl("https://api.openai.com/v1");
+        props.setApiKey("");
+
+        var bookRepositoryMock = org.mockito.Mockito.mock(com.matheusgn.ecommerce.book.repository.BookRepository.class);
+        var book = com.matheusgn.ecommerce.book.entity.Book.builder()
+                .id(java.util.UUID.randomUUID())
+                .title("Harry Potter")
+                .author("J. K. Rowling")
+                .category("Infantil")
+                .salePrice(new java.math.BigDecimal("299.00"))
+                .stockQuantity(5)
+                .active(true)
+                .build();
+        org.mockito.Mockito.when(bookRepositoryMock.findAll()).thenReturn(java.util.List.of(book));
+
+        HttpAiProviderClient client = client(props);
+        org.springframework.test.util.ReflectionTestUtils.setField(client, "bookRepository", bookRepositoryMock);
+
+        // Test with typo "infanis"
+        String reply1 = client.complete("system", "livros infanis");
+        assertThat(reply1).contains("Harry Potter");
+
+        // Test with plural "infantis"
+        String reply2 = client.complete("system", "infantis");
+        assertThat(reply2).contains("Harry Potter");
+    }
+
+    @Test
+    @DisplayName("deve retornar recomendacao de ficcao mesmo com erro de grafia como ficicao")
+    void shouldReturnFictionRecommendationsWhenQueryHasTypoFicicao() throws Exception {
+        AiProperties props = new AiProperties();
+        props.setBaseUrl("https://api.openai.com/v1");
+        props.setApiKey("");
+
+        var bookRepositoryMock = org.mockito.Mockito.mock(com.matheusgn.ecommerce.book.repository.BookRepository.class);
+        var book = com.matheusgn.ecommerce.book.entity.Book.builder()
+                .id(java.util.UUID.randomUUID())
+                .title("1984")
+                .author("George Orwell")
+                .category("Ficção")
+                .salePrice(new java.math.BigDecimal("45.00"))
+                .stockQuantity(5)
+                .active(true)
+                .build();
+        org.mockito.Mockito.when(bookRepositoryMock.findAll()).thenReturn(java.util.List.of(book));
+
+        HttpAiProviderClient client = client(props);
+        org.springframework.test.util.ReflectionTestUtils.setField(client, "bookRepository", bookRepositoryMock);
+
+        // Test with typo "ficição"
+        String reply = client.complete("system", "ficição");
+        assertThat(reply).contains("1984");
+    }
 }
